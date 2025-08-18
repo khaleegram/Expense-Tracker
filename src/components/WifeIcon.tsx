@@ -3,13 +3,13 @@ import { cn } from '@/lib/utils';
 import type { Wife } from '@/types';
 
 const wifeStyles: Record<Wife, string> = {
-  'Wife A': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  'Wife B': 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
-  'Wife C': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  'Mama': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  'Maman Abba': 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
+  'Maman Ummi': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
 };
 
 export function WifeIcon({ wife, className }: { wife: Wife, className?: string }) {
-  const initial = wife.charAt(wife.length - 1);
+  const initial = wife === "Mama" ? "M" : wife === "Maman Abba" ? "A" : "U";
 
   return (
     <div

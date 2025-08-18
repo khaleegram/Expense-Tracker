@@ -17,6 +17,7 @@ import type { UniqueItem, ExpenseData, Wife } from '@/types';
 import { WIVES, EXPENSE_CATEGORIES } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { getWifeOnDutyForDate } from '@/lib/duty';
 
 const formSchema = z.object({
   date: z.date({
@@ -28,7 +29,7 @@ const formSchema = z.object({
         (a) => parseFloat(z.string().parse(a)),
         z.number().positive('Price must be positive.')
     ),
-    wife: z.enum(['Wife A', 'Wife B', 'Wife C'], { required_error: "Please select a wife." }),
+    wife: z.enum(['Mama', 'Maman Abba', 'Maman Ummi'], { required_error: "Please select a wife." }),
     category: z.enum(['Breakfast', 'Lunch', 'Dinner', 'Other'], { required_error: "Please select a category." }),
   })).min(1, 'Please add at least one expense.'),
 });
@@ -36,15 +37,14 @@ const formSchema = z.object({
 interface ExpenseFormProps {
   onSave: (expenses: Omit<ExpenseData, 'date'>[], date: Date) => Promise<void>;
   uniqueItems: UniqueItem[];
-  getWifeOnDuty: (date: Date) => Promise<Wife | null>;
 }
 
-export default function ExpenseForm({ onSave, uniqueItems, getWifeOnDuty }: ExpenseFormProps) {
+export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       date: new Date(),
-      expenses: [{ item: '', price: 0, wife: 'Wife A', category: 'Other' }],
+      expenses: [{ item: '', price: 0, wife: 'Mama', category: 'Other' }],
     },
   });
   const { fields, append, remove, update } = useFieldArray({
@@ -55,28 +55,42 @@ export default function ExpenseForm({ onSave, uniqueItems, getWifeOnDuty }: Expe
   const itemInputRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const selectedDate = form.watch('date');
+  
+  const getWifeOnDuty = (date: Date): Wife | null => {
+    try {
+        const { primaryWife } = getWifeOnDutyForDate(date);
+        return primaryWife;
+    } catch (error) {
+        console.error("Failed to calculate wife on duty for date", date, error);
+        return null;
+    }
+  };
+
 
   useEffect(() => {
-    const updateWifeForDate = async () => {
-      const wifeOnDuty = await getWifeOnDuty(selectedDate);
+    const updateWifeForDate = () => {
+      const wifeOnDuty = getWifeOnDuty(selectedDate);
       if (wifeOnDuty) {
         fields.forEach((field, index) => {
-          update(index, { ...field, wife: wifeOnDuty });
+          if (!form.getValues(`expenses.${index}.wife`)) { // only update if not already set
+             update(index, { ...field, wife: wifeOnDuty });
+          }
         });
       }
     };
     if (selectedDate) {
       updateWifeForDate();
     }
-  }, [selectedDate, getWifeOnDuty, fields, update]);
+  }, [selectedDate, fields, update, form]);
 
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       await onSave(values.expenses, values.date);
+      const wifeOnDuty = getWifeOnDuty(new Date());
       form.reset({
         date: new Date(),
-        expenses: [{ item: '', price: 0, wife: 'Wife A', category: 'Other' }],
+        expenses: [{ item: '', price: 0, wife: wifeOnDuty || 'Mama', category: 'Other' }],
       });
       toast({
         title: "Success",
@@ -91,14 +105,17 @@ export default function ExpenseForm({ onSave, uniqueItems, getWifeOnDuty }: Expe
     }
   };
 
-  const addExpenseRow = async () => {
-    const wifeOnDuty = await getWifeOnDuty(selectedDate);
+  const addExpenseRow = () => {
+    const wifeOnDuty = getWifeOnDuty(selectedDate);
     append({ 
       item: '', 
       price: 0, 
-      wife: wifeOnDuty || 'Wife A', 
+      wife: wifeOnDuty || 'Mama', 
       category: 'Other' 
     });
+     setTimeout(() => {
+        itemInputRefs.current[fields.length]?.focus();
+    }, 0);
   };
   
   const handleKeyDown = (e: React.KeyboardEvent, index: number, field: 'item' | 'price') => {
@@ -109,7 +126,6 @@ export default function ExpenseForm({ onSave, uniqueItems, getWifeOnDuty }: Expe
         } else if (field === 'price') {
             if (index === fields.length - 1) {
                 addExpenseRow();
-                setTimeout(() => itemInputRefs.current[index + 1]?.focus(), 0);
             } else {
                 itemInputRefs.current[index + 1]?.focus();
             }
@@ -170,7 +186,11 @@ export default function ExpenseForm({ onSave, uniqueItems, getWifeOnDuty }: Expe
                                     <Combobox
                                         options={uniqueItems.map(i => ({ value: i.name, label: i.name }))}
                                         value={field.value}
-                                        onChange={field.onChange}
+                                        onChange={(value) => {
+                                            field.onChange(value);
+                                            // Focus price input after selection
+                                            document.getElementById(`expenses.${index}.price`)?.focus();
+                                        }}
                                         ref={el => itemInputRefs.current[index] = el}
                                         onKeyDown={(e) => handleKeyDown(e, index, 'item')}
                                     />
@@ -264,16 +284,18 @@ const Combobox = React.forwardRef<
     const [open, setOpen] = useState(false);
     const [inputValue, setInputValue] = useState('');
 
-    const handleSelect = (selectedValue: string) => {
-        onChange(selectedValue);
+    const handleSelect = (currentValue: string) => {
+        onChange(currentValue);
         setInputValue('');
         setOpen(false);
     };
     
     const handleCreate = () => {
-        onChange(inputValue);
-        setInputValue('');
-        setOpen(false);
+        if (inputValue) {
+            onChange(inputValue);
+            setInputValue('');
+            setOpen(false);
+        }
     };
 
     const filteredOptions = inputValue 

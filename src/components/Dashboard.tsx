@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Pie, PieChart, Cell, Tooltip } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { WifeIcon } from './WifeIcon';
-import { EXPENSE_CATEGORIES } from '@/types';
+import { EXPENSE_CATEGORIES, WIVES } from '@/types';
 
 interface DashboardProps {
   expenses: Expense[];
@@ -34,16 +34,16 @@ const chartConfig = {
   total: {
     label: "Total",
   },
-  'Wife A': {
-    label: 'Wife A',
+  'Mama': {
+    label: 'Mama',
     color: 'hsl(var(--chart-1))',
   },
-  'Wife B': {
-    label: 'Wife B',
+  'Maman Abba': {
+    label: 'Maman Abba',
     color: 'hsl(var(--chart-2))',
   },
-  'Wife C': {
-    label: 'Wife C',
+  'Maman Ummi': {
+    label: 'Maman Ummi',
     color: 'hsl(var(--chart-3))',
   },
     'Breakfast': {
@@ -80,18 +80,18 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
 
     const totalSpend = expenses.reduce((acc, exp) => acc + Number(exp.price), 0);
 
-    const spendPerWife = (['Wife A', 'Wife B', 'Wife C'] as Wife[]).map(wife => {
+    const spendPerWife = WIVES.map(wife => {
       const total = expenses
         .filter(exp => exp.wife === wife)
         .reduce((acc, exp) => acc + Number(exp.price), 0);
-      return { name: wife, total, fill: `var(--color-${wife.replace(' ', '')})` };
+      return { name: wife, total, fill: chartConfig[wife]?.color };
     });
     
     const spendPerCategory = EXPENSE_CATEGORIES.map(category => {
         const total = expenses
             .filter(exp => exp.category === category)
             .reduce((acc, exp) => acc + Number(exp.price), 0);
-        return { name: category, total, fill: `var(--color-${category})` };
+        return { name: category, total, fill: chartConfig[category]?.color };
     }).filter(c => c.total > 0);
 
     const mostExpensiveItem = expenses.reduce(
@@ -176,7 +176,11 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
                         cursor={{ fill: 'hsl(var(--accent) / 0.1)' }}
                         content={<ChartTooltipContent formatter={(value) => `₦${Number(value).toLocaleString()}`} />}
                     />
-                    <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                      {stats.spendPerWife.map((entry) => (
+                        <Cell key={entry.name} fill={entry.fill} />
+                      ))}
+                    </Bar>
                     </BarChart>
                 </ChartContainer>
             )}

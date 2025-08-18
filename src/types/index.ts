@@ -1,6 +1,6 @@
-export type Wife = 'Wife A' | 'Wife B' | 'Wife C';
+export type Wife = 'Mama' | 'Maman Abba' | 'Maman Ummi';
 
-export const WIVES: Wife[] = ['Wife A', 'Wife B', 'Wife C'];
+export const WIVES: Wife[] = ['Mama', 'Maman Abba', 'Maman Ummi'];
 
 export type Meal = 'Breakfast' | 'Lunch' | 'Dinner';
 

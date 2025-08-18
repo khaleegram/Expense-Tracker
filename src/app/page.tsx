@@ -25,7 +25,7 @@ export default function Home() {
   const [todaysDuty, setTodaysDuty] = useState<Duty[] | null>(null);
   const [dutyLoading, setDutyLoading] = useState(true);
 
-  const fetchExpensesAndItems = async () => {
+  const fetchExpensesAndItems = useCallback(async () => {
     setLoading(true);
     try {
       const expensesSnapshot = await getDocs(collection(db, 'expenses'));
@@ -38,7 +38,9 @@ export default function Home() {
       const filteredItems = itemsData.filter(item => {
         const lowerCaseName = item.name.toLowerCase();
         const duplicate = seen.has(lowerCaseName);
-        seen.add(lowerCaseName);
+        if (!duplicate) {
+          seen.add(lowerCaseName);
+        }
         return !duplicate;
       });
       setUniqueItems(filteredItems);
@@ -48,11 +50,11 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchExpensesAndItems();
-  }, []);
+  }, [fetchExpensesAndItems]);
 
   useEffect(() => {
     setDutyLoading(true);
@@ -61,17 +63,6 @@ export default function Home() {
     setDutyLoading(false);
   }, []);
   
-  const getWifeOnDuty = useCallback(async (date: Date): Promise<Wife | null> => {
-    try {
-        const { primaryWife } = getWifeOnDutyForDate(date);
-        return primaryWife;
-    } catch (error) {
-        console.error("Failed to calculate wife on duty for date", date, error);
-        return null;
-    }
-  }, []);
-
-
   const handleSaveExpenses = async (newExpenses: Omit<ExpenseData, 'date'>[], date: Date) => {
     const batch = writeBatch(db);
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -82,11 +73,12 @@ export default function Home() {
     });
 
     // Add new unique items
+    const currentItems = new Set(uniqueItems.map(item => item.name.toLowerCase()));
     for (const expense of newExpenses) {
-        const isNew = !uniqueItems.some(item => item.name.toLowerCase() === expense.item.toLowerCase());
-        if (isNew) {
+        if (!currentItems.has(expense.item.toLowerCase())) {
             const itemRef = doc(collection(db, "items"));
             batch.set(itemRef, { name: expense.item });
+            currentItems.add(expense.item.toLowerCase());
         }
     }
 
@@ -114,7 +106,11 @@ export default function Home() {
     const start = startOfMonth(currentMonth);
     const end = endOfMonth(currentMonth);
     return expenses.filter(exp => {
+      // Handle potential invalid date strings from Firestore
+      if (!exp.date || typeof exp.date !== 'string') return false;
       const expDate = new Date(exp.date);
+      if (isNaN(expDate.getTime())) return false;
+
       // Adjust for timezone differences by comparing date parts
       const expYear = expDate.getUTCFullYear();
       const expMonth = expDate.getUTCMonth();
@@ -122,7 +118,11 @@ export default function Home() {
       const startMonth = start.getMonth();
       const endYear = end.getFullYear();
       const endMonth = end.getMonth();
-      return (expYear > startYear || (expYear === startYear && expMonth >= startMonth)) && (expYear < endYear || (expYear === endYear && expMonth <= endMonth));
+      
+      const isAfterStart = expYear > startYear || (expYear === startYear && expMonth >= startMonth);
+      const isBeforeEnd = expYear < endYear || (expYear === endYear && expMonth <= endMonth);
+
+      return isAfterStart && isBeforeEnd;
     });
   }, [expenses, currentMonth]);
 
@@ -211,7 +211,6 @@ export default function Home() {
                   <ExpenseForm 
                     onSave={handleSaveExpenses} 
                     uniqueItems={uniqueItems} 
-                    getWifeOnDuty={getWifeOnDuty}
                   />
                 </CardContent>
               </Card>

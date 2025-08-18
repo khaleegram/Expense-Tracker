@@ -1,7 +1,7 @@
 import { Wife, Duty, Meal } from '@/types';
 import { differenceInDays, startOfDay } from 'date-fns';
 
-const WIVES_ROTATION: Wife[] = ['Wife A', 'Wife B', 'Wife C'];
+const WIVES_ROTATION: Wife[] = ['Mama', 'Maman Abba', 'Maman Ummi'];
 const START_DATE = startOfDay(new Date('2024-07-18T00:00:00'));
 
 /**
@@ -13,58 +13,53 @@ export function getWifeOnDutyForDate(date: Date): { primaryWife: Wife; duty: Dut
   const targetDate = startOfDay(date);
   const dayDiff = differenceInDays(targetDate, START_DATE);
 
-  // The cycle repeats every 3 days for each wife, but the overall pattern repeats over 9 days.
-  // We use modulo to find where in the 9-day cycle we are.
-  // day 0: C(B,L), A(D) -> offset for A is 0, offset for C is 2.
-  // To simplify, let's calculate based on Wife A's cycle starting fresh on July 19th.
-  // Let's use a reference date where a cycle cleanly starts.
-  // July 18: C(BL), A(D)
-  // July 19: A(BLD) -> This is Day 2 of A's turn.
-  // July 20: A(BL), B(D) -> This is Day 3 of A's turn.
-  // A full rotation of A,B,C takes 3 * 2 = 6 full days + 3 dinner days = 9 days?
-  // Day 1: A(D)
-  // Day 2: A(BLD)
-  // Day 3: A(BL), B(D)
-  // Day 4: B(BLD)
-  // Day 5: B(BL), C(D)
-  // Day 6: C(BLD)
-  // Day 7: C(BL), A(D)
-  // This is a 6 day cycle. Let's use that.
-  // July 18 is a reference. Day diff from July 18.
+  // This is a 6 day cycle based on the user's detailed description.
   // July 18 (diff 0): C(BL), A(D). Primary: C
-  // July 19 (diff 1): A(BLD). Primary: A
-  // July 20 (diff 2): A(BL), B(D). Primary: A
-  // July 21 (diff 3): B(BLD). Primary: B
-  // July 22 (diff 4): B(BL), C(D). Primary: B
-  // July 23 (diff 5): C(BLD). Primary: C
-  // July 24 (diff 6): C(BL), A(D). Primary: C -> This is a repeat of day 0. So it is a 6 day cycle.
+  // July 19 (diff 1): A(BL), B(D). Primary: A
+  // July 20 (diff 2): B(BLD). Primary: B
+  // July 21 (diff 3): B(BL), C(D). Primary: B
+  // July 22 (diff 4): C(BLD). Primary: C
+  // July 23 (diff 5): C(BL), A(D). Primary: C -> This is a repeat of day 0. No, that's not right.
+
+  // Let's re-evaluate the user's final logic.
+  // "wife C did breakfast and lunch today 18th while Wife A is starting fresh today"
+  // July 18: C(BL), A(D). Primary: C
+  // "then tomorrow wife a does completely only her"
+  // July 19: A(BLD). Primary: A
+  // "then next tomorrow wife A does break fast and lunch then wife be do dinner"
+  // July 20: A(BL), B(D). Primary: A
+  // Following the pattern:
+  // July 21: B(BLD). Primary: B
+  // July 22: B(BL), C(D). Primary: B
+  // July 23: C(BLD). Primary: C
+  // July 24: C(BL), A(D). Primary: C -> This is a repeat of day 0 (July 18). So it IS a 6 day cycle.
 
   const cycleDay = (dayDiff % 6 + 6) % 6; // Ensure positive modulo
 
   const duties: Duty[] = [];
-  let primaryWife: Wife = 'Wife A';
+  let primaryWife: Wife = 'Mama';
 
   if (cycleDay === 0) { // e.g., July 18, July 24
-    duties.push({ wife: 'Wife C', meals: ['Breakfast', 'Lunch'] });
-    duties.push({ wife: 'Wife A', meals: ['Dinner'] });
-    primaryWife = 'Wife C';
+    duties.push({ wife: 'Maman Ummi', meals: ['Breakfast', 'Lunch'] });
+    duties.push({ wife: 'Mama', meals: ['Dinner'] });
+    primaryWife = 'Maman Ummi';
   } else if (cycleDay === 1) { // e.g., July 19
-    duties.push({ wife: 'Wife A', meals: ['Breakfast', 'Lunch', 'Dinner'] });
-    primaryWife = 'Wife A';
+    duties.push({ wife: 'Mama', meals: ['Breakfast', 'Lunch', 'Dinner'] });
+    primaryWife = 'Mama';
   } else if (cycleDay === 2) { // e.g., July 20
-    duties.push({ wife: 'Wife A', meals: ['Breakfast', 'Lunch'] });
-    duties.push({ wife: 'Wife B', meals: ['Dinner'] });
-    primaryWife = 'Wife A';
+    duties.push({ wife: 'Mama', meals: ['Breakfast', 'Lunch'] });
+    duties.push({ wife: 'Maman Abba', meals: ['Dinner'] });
+    primaryWife = 'Mama';
   } else if (cycleDay === 3) { // e.g., July 21
-    duties.push({ wife: 'Wife B', meals: ['Breakfast', 'Lunch', 'Dinner'] });
-    primaryWife = 'Wife B';
+    duties.push({ wife: 'Maman Abba', meals: ['Breakfast', 'Lunch', 'Dinner'] });
+    primaryWife = 'Maman Abba';
   } else if (cycleDay === 4) { // e.g., July 22
-    duties.push({ wife: 'Wife B', meals: ['Breakfast', 'Lunch'] });
-    duties.push({ wife: 'Wife C', meals: ['Dinner'] });
-    primaryWife = 'Wife B';
+    duties.push({ wife: 'Maman Abba', meals: ['Breakfast', 'Lunch'] });
+    duties.push({ wife: 'Maman Ummi', meals: ['Dinner'] });
+    primaryWife = 'Maman Abba';
   } else if (cycleDay === 5) { // e.g., July 23
-    duties.push({ wife: 'Wife C', meals: ['Breakfast', 'Lunch', 'Dinner'] });
-    primaryWife = 'Wife C';
+    duties.push({ wife: 'Maman Ummi', meals: ['Breakfast', 'Lunch', 'Dinner'] });
+    primaryWife = 'Maman Ummi';
   }
   
   return { primaryWife, duty: duties };
