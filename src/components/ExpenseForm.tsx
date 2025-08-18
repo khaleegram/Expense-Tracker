@@ -258,26 +258,22 @@ const Combobox = React.forwardRef<
     }
 >(({ options, value, onChange, onKeyDown }, ref) => {
     const [open, setOpen] = useState(false);
-    const [inputValue, setInputValue] = useState(value || '');
-
-    useEffect(() => {
-        setInputValue(value || '');
-    }, [value]);
+    const [inputValue, setInputValue] = useState('');
 
     const handleSelect = (currentValue: string) => {
-        const newValue = currentValue === "create_new" ? inputValue : currentValue;
-        onChange(newValue);
-        setInputValue(newValue);
+        onChange(currentValue);
         setOpen(false);
-        (document.activeElement as HTMLElement)?.blur();
     };
     
-    const handleInputChange = (search: string) => {
-        setInputValue(search);
-        onChange(search);
+    const handleCreate = () => {
+        onChange(inputValue);
+        setOpen(false);
     };
 
-    const filteredOptions = options.filter(option => option.label.toLowerCase().includes(inputValue.toLowerCase()));
+    const filteredOptions = inputValue 
+        ? options.filter(option => option.label.toLowerCase().includes(inputValue.toLowerCase()))
+        : options;
+
     const showCreateOption = inputValue && !options.some(option => option.label.toLowerCase() === inputValue.toLowerCase());
 
     return (
@@ -291,7 +287,7 @@ const Combobox = React.forwardRef<
                     ref={ref}
                     onKeyDown={onKeyDown}
                 >
-                    {value ? value : "Select item..."}
+                    {value || "Select item..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
@@ -300,20 +296,22 @@ const Combobox = React.forwardRef<
                     <CommandInput
                         placeholder="Search or create item..."
                         value={inputValue}
-                        onValueChange={handleInputChange}
+                        onValueChange={setInputValue}
                     />
                     <CommandList>
-                        <CommandEmpty>
-                           {showCreateOption ? (
-                             <CommandItem
-                                value="create_new"
-                                onSelect={() => handleSelect("create_new")}
-                             >
-                                Create "{inputValue}"
-                             </CommandItem>
-                           ) : (
-                            <span>No item found.</span>
-                           )}
+                       <CommandEmpty>
+                            {showCreateOption ? (
+                                <div className="p-1">
+                                    <Button
+                                        className="w-full"
+                                        onClick={handleCreate}
+                                    >
+                                        Create "{inputValue}"
+                                    </Button>
+                                </div>
+                            ) : (
+                                <p className="p-4 text-sm text-center text-muted-foreground">No item found.</p>
+                            )}
                         </CommandEmpty>
                         <CommandGroup>
                             {filteredOptions.map((option) => (
@@ -322,10 +320,10 @@ const Combobox = React.forwardRef<
                                     value={option.value}
                                     onSelect={handleSelect}
                                 >
-                                     <Check
+                                    <Check
                                         className={cn(
-                                        "mr-2 h-4 w-4",
-                                        value === option.value ? "opacity-100" : "opacity-0"
+                                            "mr-2 h-4 w-4",
+                                            value === option.value ? "opacity-100" : "opacity-0"
                                         )}
                                     />
                                     {option.label}
