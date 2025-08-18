@@ -46,7 +46,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
       expenses: [{ item: '', price: 0, wife: 'Wife A' }],
     },
   });
-  const { fields, append, remove, update } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "expenses",
   });
@@ -62,7 +62,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
           const dateStr = format(date, 'yyyy-MM-dd');
           const suggestion = await suggestWifeAssignment({ date: dateStr });
           if(fields.length === 1 && fields[0].item === '' && fields[0].price === 0) {
-            form.setValue('expenses.0.wife', suggestion.suggestedWife as Wife);
+            form.setValue('expenses.0.wife', suggestion.primaryWife as Wife);
           }
         } catch (error) {
           console.error("AI suggestion failed:", error);
@@ -70,7 +70,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
       }
     };
     getSuggestion();
-  }, [date, fields.length]); // Intentionally re-running only when date or number of fields changes
+  }, [date, fields.length, form]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
@@ -192,7 +192,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
                       name={`expenses.${index}.wife`}
                       render={({ field }) => (
                         <FormItem>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select wife" />
@@ -243,20 +243,15 @@ const Combobox = React.forwardRef<
     }, [value]);
 
     const handleSelect = (currentValue: string) => {
-        const newValue = currentValue === value ? "" : currentValue;
-        onChange(newValue);
-        setInputValue(newValue);
+        onChange(currentValue);
+        setInputValue(currentValue);
         setOpen(false);
     };
-
+    
     const handleInputChange = (search: string) => {
         setInputValue(search);
         onChange(search);
     };
-
-    const filteredOptions = options.filter(option =>
-        option.label.toLowerCase().includes(inputValue.toLowerCase())
-    );
 
     const showCreateOption = inputValue && !options.some(option => option.label.toLowerCase() === inputValue.toLowerCase());
 
@@ -284,18 +279,17 @@ const Combobox = React.forwardRef<
                     />
                     <CommandList>
                         <CommandEmpty>
-                           {showCreateOption && (
+                           {showCreateOption ? (
                              <CommandItem
                                 value={inputValue}
                                 onSelect={() => handleSelect(inputValue)}
                              >
                                 Create "{inputValue}"
                              </CommandItem>
-                           )}
-                           {!showCreateOption && "No item found."}
+                           ) : "No item found."}
                         </CommandEmpty>
                         <CommandGroup>
-                            {filteredOptions.map((option) => (
+                            {options.map((option) => (
                                 <CommandItem
                                     key={option.value}
                                     value={option.value}

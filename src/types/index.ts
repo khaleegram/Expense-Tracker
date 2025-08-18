@@ -2,6 +2,13 @@ export type Wife = 'Wife A' | 'Wife B' | 'Wife C';
 
 export const WIVES: Wife[] = ['Wife A', 'Wife B', 'Wife C'];
 
+export type Meal = 'Breakfast' | 'Lunch' | 'Dinner';
+
+export interface Duty {
+    wife: Wife;
+    meals: Meal[];
+}
+
 export interface Expense {
   id: string;
   item: string;

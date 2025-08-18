@@ -3,22 +3,27 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Expense, ExpenseData, UniqueItem, Wife } from '@/types';
+import type { Expense, ExpenseData, UniqueItem, Wife, Duty } from '@/types';
 import Dashboard from '@/components/Dashboard';
 import ExpenseForm from '@/components/ExpenseForm';
 import ExpenseList from '@/components/ExpenseList';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChevronLeft, ChevronRight, CookingPot, Utensils, Soup } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { suggestWifeAssignment } from '@/ai/flows/wife-assignment-suggestion';
+import { Skeleton } from '@/components/ui/skeleton';
+import { WifeIcon } from '@/components/WifeIcon';
 
 export default function Home() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [uniqueItems, setUniqueItems] = useState<UniqueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [dutySchedule, setDutySchedule] = useState<Duty[] | null>(null);
+  const [dutyLoading, setDutyLoading] = useState(true);
 
   const fetchExpensesAndItems = async () => {
     setLoading(true);
@@ -39,6 +44,23 @@ export default function Home() {
 
   useEffect(() => {
     fetchExpensesAndItems();
+  }, []);
+
+  useEffect(() => {
+    const fetchDuty = async () => {
+      setDutyLoading(true);
+      try {
+        const dateStr = format(new Date(), 'yyyy-MM-dd');
+        const result = await suggestWifeAssignment({ date: dateStr });
+        setDutySchedule(result.duty as Duty[]);
+      } catch (error) {
+        console.error("Failed to fetch duty schedule", error);
+        setDutySchedule(null);
+      } finally {
+        setDutyLoading(false);
+      }
+    };
+    fetchDuty();
   }, []);
 
   const handleSaveExpenses = async (newExpenses: Omit<ExpenseData, 'date'>[], date: Date) => {
@@ -87,6 +109,12 @@ export default function Home() {
   const changeMonth = (amount: number) => {
     setCurrentMonth(prev => amount > 0 ? addMonths(prev, 1) : subMonths(prev, 1));
   };
+  
+  const mealIcons = {
+    'Breakfast': <CookingPot className="h-5 w-5 text-amber-600" />,
+    'Lunch': <Utensils className="h-5 w-5 text-cyan-600" />,
+    'Dinner': <Soup className="h-5 w-5 text-indigo-600" />,
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -96,8 +124,47 @@ export default function Home() {
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">Expense Eye</h1>
         </div>
       </header>
-
+      
       <main className="p-4 md:px-8">
+        <Card className="mb-6">
+            <CardHeader>
+                <CardTitle>Today's Duty ({format(new Date(), "do MMMM")})</CardTitle>
+            </CardHeader>
+            <CardContent>
+                {dutyLoading ? (
+                     <div className="flex items-center space-x-4">
+                        <Skeleton className="h-12 w-12 rounded-full" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-[150px]" />
+                            <Skeleton className="h-4 w-[100px]" />
+                        </div>
+                    </div>
+                ) : dutySchedule && dutySchedule.length > 0 ? (
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        {dutySchedule.map(duty => (
+                            <div key={duty.wife} className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
+                                <WifeIcon wife={duty.wife} />
+                                <div>
+                                    <p className="font-semibold">{duty.wife}</p>
+                                    <div className="flex items-center gap-3 mt-1">
+                                        {duty.meals.map(meal => (
+                                            <div key={meal} className="flex items-center gap-1.5" title={meal}>
+                                                {mealIcons[meal as keyof typeof mealIcons]}
+                                                <span className="text-sm text-muted-foreground">{meal}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p>No duty information available for today.</p>
+                )}
+            </CardContent>
+        </Card>
+
+
         <div className="flex justify-center items-center mb-6 gap-4">
           <Button variant="outline" size="icon" onClick={() => changeMonth(-1)}>
             <ChevronLeft className="h-4 w-4" />
