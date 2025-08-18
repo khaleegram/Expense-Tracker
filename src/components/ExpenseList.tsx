@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import type { Expense, Wife, ExpenseCategory } from '@/types';
-import { WIVES, EXPENSE_CATEGORIES } from '@/types';
+import { WIVES, EXPENSE_CATEGORIES, ALL_WIVES_OPTIONS } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -94,7 +94,7 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading }: E
                   <TableCell>{format(new Date(expense.date), 'dd MMM yyyy')}</TableCell>
                   <TableCell className="font-medium">{expense.item}</TableCell>
                   <TableCell>{expense.category}</TableCell>
-                  <TableCell><WifeIcon wife={expense.wife} /></TableCell>
+                  <TableCell>{expense.wife === 'N/A' ? 'N/A' : <WifeIcon wife={expense.wife} />}</TableCell>
                   <TableCell className="text-right">₦{expense.price.toLocaleString()}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -163,7 +163,7 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading }: E
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {WIVES.map(wife => (
+                    {ALL_WIVES_OPTIONS.map(wife => (
                       <SelectItem key={wife} value={wife}>{wife}</SelectItem>
                     ))}
                   </SelectContent>

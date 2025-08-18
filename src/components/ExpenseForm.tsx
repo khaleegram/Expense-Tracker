@@ -14,25 +14,38 @@ import { CalendarIcon, Check, ChevronsUpDown, PlusCircle, Trash2 } from 'lucide-
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import type { UniqueItem, ExpenseData, Wife } from '@/types';
-import { WIVES, EXPENSE_CATEGORIES } from '@/types';
+import { WIVES, EXPENSE_CATEGORIES, ALL_WIVES_OPTIONS } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { getWifeOnDutyForDate } from '@/lib/duty';
+
+const expenseSchema = z.object({
+  item: z.string().min(1, 'Item name is required.'),
+  price: z.preprocess(
+      (a) => parseFloat(z.string().parse(a)),
+      z.number().positive('Price must be positive.')
+  ),
+  wife: z.enum(['Mama', 'Maman Abba', 'Maman Ummi', 'N/A'], { required_error: "Please select a wife." }),
+  category: z.enum(['Breakfast', 'Lunch', 'Dinner', 'Other'], { required_error: "Please select a category." }),
+});
 
 const formSchema = z.object({
   date: z.date({
     required_error: "A date is required.",
   }),
-  expenses: z.array(z.object({
-    item: z.string().min(1, 'Item name is required.'),
-    price: z.preprocess(
-        (a) => parseFloat(z.string().parse(a)),
-        z.number().positive('Price must be positive.')
-    ),
-    wife: z.enum(['Mama', 'Maman Abba', 'Maman Ummi'], { required_error: "Please select a wife." }),
-    category: z.enum(['Breakfast', 'Lunch', 'Dinner', 'Other'], { required_error: "Please select a category." }),
-  })).min(1, 'Please add at least one expense.'),
+  expenses: z.array(expenseSchema).min(1, 'Please add at least one expense.'),
+}).superRefine((data, ctx) => {
+    data.expenses.forEach((expense, index) => {
+        if (expense.category !== 'Other' && expense.wife === 'N/A') {
+             ctx.addIssue({
+                path: [`expenses`, index, 'wife'],
+                message: 'Please select a wife for this category.',
+                code: z.ZodIssueCode.custom,
+            });
+        }
+    });
 });
+
 
 interface ExpenseFormProps {
   onSave: (expenses: Omit<ExpenseData, 'date'>[], date: Date) => Promise<void>;
@@ -55,8 +68,9 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
   const itemInputRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const selectedDate = form.watch('date');
-  
-  const getWifeOnDuty = (date: Date): Wife | null => {
+  const expensesWatcher = form.watch('expenses');
+
+   const getWifeOnDuty = (date: Date): Wife | null => {
     try {
         const { primaryWife } = getWifeOnDutyForDate(date);
         return primaryWife;
@@ -66,22 +80,27 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
     }
   };
 
-
   useEffect(() => {
-    const updateWifeForDate = () => {
-      const wifeOnDuty = getWifeOnDuty(selectedDate);
-      if (wifeOnDuty) {
+    const wifeOnDuty = getWifeOnDuty(selectedDate);
+    if(wifeOnDuty) {
         fields.forEach((field, index) => {
-          if (!form.getValues(`expenses.${index}.wife`)) { // only update if not already set
-             update(index, { ...field, wife: wifeOnDuty });
-          }
+            const currentCategory = form.getValues(`expenses.${index}.category`);
+             if (currentCategory !== 'Other') {
+                update(index, { ...field, wife: wifeOnDuty });
+            } else {
+                update(index, { ...field, wife: 'N/A' });
+            }
         });
-      }
-    };
-    if (selectedDate) {
-      updateWifeForDate();
     }
   }, [selectedDate, fields, update, form]);
+  
+  useEffect(() => {
+    expensesWatcher.forEach((expense, index) => {
+      if (expense.category === 'Other' && expense.wife !== 'N/A') {
+        form.setValue(`expenses.${index}.wife`, 'N/A', { shouldValidate: true });
+      }
+    })
+  }, [expensesWatcher, form]);
 
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -172,7 +191,10 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
         />
         
         <div className="space-y-4">
-            {fields.map((field, index) => (
+            {fields.map((field, index) => {
+                const category = form.watch(`expenses.${index}.category`);
+                const isOtherCategory = category === 'Other';
+                return (
                 <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_120px_140px_140px_auto] gap-2 items-start">
                     <FormField
                       control={form.control}
@@ -238,7 +260,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
                       name={`expenses.${index}.wife`}
                       render={({ field }) => (
                         <FormItem>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value} disabled={isOtherCategory}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select wife" />
@@ -258,7 +280,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
                         <Trash2 className="h-4 w-4 text-destructive" />
                      </Button>
                 </div>
-            ))}
+            )})}
         </div>
 
         <div className="flex justify-between items-center">
@@ -282,11 +304,11 @@ const Combobox = React.forwardRef<
     }
 >(({ options, value, onChange, onKeyDown }, ref) => {
     const [open, setOpen] = useState(false);
-    const [inputValue, setInputValue] = useState('');
+    const [inputValue, setInputValue] = useState("");
 
-    const handleSelect = (currentValue: string) => {
-        onChange(currentValue);
-        setInputValue('');
+    const handleSelect = (selectedValue: string) => {
+        onChange(selectedValue);
+        setInputValue("");
         setOpen(false);
     };
     
@@ -298,11 +320,17 @@ const Combobox = React.forwardRef<
         }
     };
 
-    const filteredOptions = inputValue 
-        ? options.filter(option => option.label.toLowerCase().includes(inputValue.toLowerCase()))
+    const filteredOptions = inputValue
+        ? options.filter((option) =>
+              option.label.toLowerCase().includes(inputValue.toLowerCase())
+          )
         : options;
 
-    const showCreateOption = inputValue && !options.some(option => option.label.toLowerCase() === inputValue.toLowerCase());
+    const showCreateOption =
+        inputValue &&
+        !options.some(
+            (option) => option.label.toLowerCase() === inputValue.toLowerCase()
+        );
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -327,18 +355,15 @@ const Combobox = React.forwardRef<
                         onValueChange={setInputValue}
                     />
                     <CommandList>
-                       <CommandEmpty>
+                        <CommandEmpty>
                             {showCreateOption ? (
-                                <div className="p-1">
-                                    <Button
-                                        className="w-full"
-                                        onClick={handleCreate}
-                                    >
+                               <div className="p-1">
+                                    <Button className="w-full" onClick={handleCreate}>
                                         Create "{inputValue}"
                                     </Button>
                                 </div>
                             ) : (
-                                <p className="p-4 text-sm text-center text-muted-foreground">No item found.</p>
+                                "No item found."
                             )}
                         </CommandEmpty>
                         <CommandGroup>

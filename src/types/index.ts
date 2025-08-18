@@ -1,6 +1,8 @@
-export type Wife = 'Mama' | 'Maman Abba' | 'Maman Ummi';
+export type Wife = 'Mama' | 'Maman Abba' | 'Maman Ummi' | 'N/A';
 
 export const WIVES: Wife[] = ['Mama', 'Maman Abba', 'Maman Ummi'];
+export const ALL_WIVES_OPTIONS: Wife[] = ['Mama', 'Maman Abba', 'Maman Ummi', 'N/A'];
+
 
 export type Meal = 'Breakfast' | 'Lunch' | 'Dinner';
 
