@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, getDocs, writeBatch, doc, runTransaction, getDoc } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, runTransaction, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Expense, ExpenseData, UniqueItem, Wife, Duty } from '@/types';
 import Dashboard from '@/components/Dashboard';
@@ -53,12 +53,14 @@ export default function Home() {
       });
       setUniqueItems(filteredItems);
 
-      // Fetch Balance
+      // Fetch Balance and initialize if it doesn't exist
       const balanceRef = doc(db, 'balance', 'current');
       const balanceSnap = await getDoc(balanceRef);
       if (balanceSnap.exists()) {
         setBalance(balanceSnap.data().amount);
       } else {
+        // Document doesn't exist, so create it.
+        await setDoc(balanceRef, { amount: 0 });
         setBalance(0);
       }
 
@@ -95,6 +97,10 @@ export default function Home() {
             const currentBalance = balanceDoc.exists() ? balanceDoc.data().amount : 0;
             const newBalance = currentBalance - totalNewExpense;
             
+            if (newBalance < 0) {
+              throw new Error("Insufficient balance.");
+            }
+            
             transaction.set(balanceRef, { amount: newBalance });
 
             const dateStr = format(date, 'yyyy-MM-dd');
@@ -117,12 +123,12 @@ export default function Home() {
             description: `₦${totalNewExpense.toLocaleString()} deducted from balance.`,
         });
         await fetchAppData(); // Refresh data
-    } catch (error) {
+    } catch (error: any) {
         console.error("Transaction failed: ", error);
         toast({
             variant: "destructive",
             title: "Error Saving Expenses",
-            description: "Could not save expenses. Please try again.",
+            description: error.message || "Could not save expenses. Please try again.",
         });
     }
   };
@@ -137,6 +143,10 @@ export default function Home() {
             const balanceDoc = await transaction.get(balanceRef);
             const currentBalance = balanceDoc.exists() ? balanceDoc.data().amount : 0;
             const newBalance = currentBalance - priceDifference;
+            
+            if (newBalance < 0) {
+              throw new Error("Insufficient balance.");
+            }
 
             transaction.set(balanceRef, { amount: newBalance });
             transaction.update(expenseRef, updatedExpense);
@@ -146,12 +156,12 @@ export default function Home() {
             description: `Balance adjusted by ₦${priceDifference.toLocaleString()}.`,
         });
         await fetchAppData();
-    } catch (e) {
+    } catch (e: any) {
         console.error("Update transaction failed: ", e);
         toast({
             variant: "destructive",
             title: "Error Updating Expense",
-            description: "Could not update expense. Please try again.",
+            description: e.message || "Could not update expense. Please try again.",
         });
     }
   };
@@ -363,3 +373,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
