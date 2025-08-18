@@ -261,7 +261,7 @@ const Combobox = React.forwardRef<
     const [inputValue, setInputValue] = useState('');
 
     const handleSelect = (currentValue: string) => {
-        onChange(currentValue);
+        onChange(currentValue === value ? "" : currentValue);
         setOpen(false);
     };
     
