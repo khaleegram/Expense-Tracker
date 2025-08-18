@@ -22,7 +22,7 @@ const WifeAssignmentSuggestionOutputSchema = z.object({
     wife: z.string().describe('The name of the wife on duty.'),
     meals: z.array(z.string()).describe('A list of meals the wife is responsible for on this date.'),
   })).describe('A list of wives on duty for the given date and their assigned meals.'),
-  primaryWife: z.string().describe('The primary wife for the day, usually the one with the most meals or who handles lunch.'),
+  primaryWife: z.string().describe('The primary wife for the day, usually the one who handles lunch.'),
 });
 export type WifeAssignmentSuggestionOutput = z.infer<typeof WifeAssignmentSuggestionOutputSchema>;
 
@@ -39,20 +39,19 @@ const prompt = ai.definePrompt({
   output: {schema: WifeAssignmentSuggestionOutputSchema},
   prompt: `You are a helpful assistant that determines which wife is on duty for a given date based on a complex, meal-based rotation.
 
-The schedule is a 3-day cycle for each wife:
+The schedule is a cycle for each wife over three days:
 - A wife's turn starts with **Dinner** on her first day.
 - On her second day, she covers **Breakfast, Lunch, and Dinner**.
 - On her third and final day, she covers **Breakfast and Lunch**.
-- The next wife in the rotation starts with **Dinner** on that same third day.
+- On that same third day, the next wife in the rotation begins her own cycle by starting with **Dinner**.
 
 The rotation order is Wife A -> Wife B -> Wife C -> Wife A, and so on.
 
-The cycle officially starts with Wife A on **2024-07-29**.
-To be precise:
-- On 2024-07-28, Wife C was responsible for Breakfast, Lunch, and Dinner.
-- On 2024-07-29, Wife C is responsible for Breakfast and Lunch, and Wife A starts her turn with Dinner.
-- On 2024-07-30, Wife A is responsible for Breakfast, Lunch, and Dinner.
-- On 2024-07-31, Wife A is responsible for Breakfast and Lunch, and Wife B starts her turn with Dinner.
+The schedule officially starts with this specific state on **July 29th, 2024**:
+- On **July 29th, 2024**, Wife C is responsible for **Breakfast and Lunch** (finishing her turn), AND Wife A is responsible for **Dinner** (starting her turn).
+- On **July 30th, 2024**, Wife A is responsible for **Breakfast, Lunch, and Dinner**.
+- On **July 31st, 2024**, Wife A is responsible for **Breakfast and Lunch**, AND Wife B is responsible for **Dinner**.
+- On **August 1st, 2024**, Wife B is responsible for **Breakfast, Lunch, and Dinner**.
 ...and so on.
 
 Given the date {{{date}}}, determine which wife (or wives) are on duty and which meals they are responsible for. The 'primaryWife' should be the one responsible for lunch on the given day.
