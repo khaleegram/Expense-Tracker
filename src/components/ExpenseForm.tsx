@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, PlusCircle, Trash2 } from 'lucide-react';
+import { CalendarIcon, Check, ChevronsUpDown, PlusCircle, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import type { Wife, UniqueItem, ExpenseData } from '@/types';
@@ -235,8 +235,8 @@ const Combobox = React.forwardRef<
         onKeyDown: React.KeyboardEventHandler<HTMLButtonElement>;
     }
 >(({ options, value, onChange, onKeyDown }, ref) => {
-    const [open, setOpen] = React.useState(false);
-    const [inputValue, setInputValue] = React.useState(value || '');
+    const [open, setOpen] = useState(false);
+    const [inputValue, setInputValue] = useState(value || '');
 
     useEffect(() => {
         setInputValue(value || '');
@@ -245,6 +245,7 @@ const Combobox = React.forwardRef<
     const handleSelect = (currentValue: string) => {
         const newValue = currentValue === value ? "" : currentValue;
         onChange(newValue);
+        setInputValue(newValue);
         setOpen(false);
     };
 
@@ -252,6 +253,10 @@ const Combobox = React.forwardRef<
         setInputValue(search);
         onChange(search);
     };
+
+    const filteredOptions = options.filter(option =>
+        option.label.toLowerCase().includes(inputValue.toLowerCase())
+    );
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -264,31 +269,41 @@ const Combobox = React.forwardRef<
                     ref={ref}
                     onKeyDown={onKeyDown}
                 >
-                    {value || "Select item..."}
+                    {value ? value : "Select item..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                 <Command>
-                    <CommandInput 
-                      placeholder="Search or create item..."
-                      value={inputValue}
-                      onValueChange={handleInputChange}
+                    <CommandInput
+                        placeholder="Search or create item..."
+                        value={inputValue}
+                        onValueChange={handleInputChange}
                     />
                     <CommandList>
                         <CommandEmpty>
-                           <div
-                              className="py-6 text-center text-sm"
-                           >
-                              No item found. Create a new one.
-                           </div>
+                           {inputValue && (
+                             <CommandItem
+                                value={inputValue}
+                                onSelect={() => handleSelect(inputValue)}
+                             >
+                                Create "{inputValue}"
+                             </CommandItem>
+                           )}
                         </CommandEmpty>
                         <CommandGroup>
-                            {options.map((option) => (
+                            {filteredOptions.map((option) => (
                                 <CommandItem
                                     key={option.value}
                                     value={option.value}
                                     onSelect={() => handleSelect(option.value)}
                                 >
+                                     <Check
+                                        className={cn(
+                                        "mr-2 h-4 w-4",
+                                        value === option.value ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
                                     {option.label}
                                 </CommandItem>
                             ))}
