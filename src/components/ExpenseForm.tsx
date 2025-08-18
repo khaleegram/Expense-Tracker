@@ -13,8 +13,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, Check, ChevronsUpDown, PlusCircle, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import type { Wife, UniqueItem, ExpenseData } from '@/types';
-import { WIVES } from '@/types';
+import type { Wife, UniqueItem, ExpenseData, ExpenseCategory } from '@/types';
+import { WIVES, EXPENSE_CATEGORIES } from '@/types';
 import { suggestWifeAssignment } from '@/ai/flows/wife-assignment-suggestion';
 import { useToast } from '@/hooks/use-toast';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -30,6 +30,7 @@ const formSchema = z.object({
         z.number().positive('Price must be positive.')
     ),
     wife: z.enum(['Wife A', 'Wife B', 'Wife C'], { required_error: "Please select a wife." }),
+    category: z.enum(['Breakfast', 'Lunch', 'Dinner', 'Other'], { required_error: "Please select a category." }),
   })).min(1, 'Please add at least one expense.'),
 });
 
@@ -43,7 +44,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       date: new Date(),
-      expenses: [{ item: '', price: 0, wife: 'Wife A' }],
+      expenses: [{ item: '', price: 0, wife: 'Wife A', category: 'Other' }],
     },
   });
   const { fields, append, remove } = useFieldArray({
@@ -77,7 +78,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
       await onSave(values.expenses, values.date);
       form.reset({
         date: new Date(),
-        expenses: [{ item: '', price: 0, wife: 'Wife A' }],
+        expenses: [{ item: '', price: 0, wife: 'Wife A', category: 'Other' }],
       });
       toast({
         title: "Success",
@@ -93,7 +94,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
   };
 
   const addExpenseRow = () => {
-    append({ item: '', price: 0, wife: form.getValues('expenses.0.wife') || 'Wife A' });
+    append({ item: '', price: 0, wife: form.getValues('expenses.0.wife') || 'Wife A', category: 'Other' });
   };
   
   const handleKeyDown = (e: React.KeyboardEvent, index: number, field: 'item' | 'price') => {
@@ -152,7 +153,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
         
         <div className="space-y-4">
             {fields.map((field, index) => (
-                <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_150px_150px_auto] gap-2 items-start">
+                <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_120px_140px_140px_auto] gap-2 items-start">
                     <FormField
                       control={form.control}
                       name={`expenses.${index}.item`}
@@ -183,6 +184,27 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
                           <FormControl>
                             <Input {...field} type="number" placeholder="Price" id={`expenses.${index}.price`} onKeyDown={(e) => handleKeyDown(e, index, 'price')} />
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                     <FormField
+                      control={form.control}
+                      name={`expenses.${index}.category`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {EXPENSE_CATEGORIES.map(category => (
+                                <SelectItem key={category} value={category}>{category}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -243,8 +265,9 @@ const Combobox = React.forwardRef<
     }, [value]);
 
     const handleSelect = (currentValue: string) => {
-        onChange(currentValue);
-        setInputValue(currentValue);
+        const newValue = currentValue === inputValue ? currentValue : currentValue;
+        onChange(newValue);
+        setInputValue(newValue);
         setOpen(false);
     };
     
@@ -275,7 +298,7 @@ const Combobox = React.forwardRef<
                     <CommandInput
                         placeholder="Search or create item..."
                         value={inputValue}
-                        onValueChange={handleInputChange}
+                        onValueValueChange={handleInputChange}
                     />
                     <CommandList>
                         <CommandEmpty>
@@ -294,7 +317,7 @@ const Combobox = React.forwardRef<
                                 <CommandItem
                                     key={option.value}
                                     value={option.value}
-                                    onSelect={() => handleSelect(option.value)}
+                                    onSelect={handleSelect}
                                 >
                                      <Check
                                         className={cn(

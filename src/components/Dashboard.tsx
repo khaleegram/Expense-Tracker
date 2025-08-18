@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import type { Expense, Wife } from '@/types';
+import type { Expense, Wife, ExpenseCategory } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Pie, PieChart, Cell } from 'recharts';
 import { ChartTooltipContent } from '@/components/ui/chart';
 import { WifeIcon } from './WifeIcon';
+import { EXPENSE_CATEGORIES } from '@/types';
 
 interface DashboardProps {
   expenses: Expense[];
@@ -29,12 +30,21 @@ const StatCard = ({ title, value, loading, icon }: { title: string, value: strin
   </Card>
 );
 
+const COLORS = {
+    'Breakfast': 'hsl(var(--chart-1))',
+    'Lunch': 'hsl(var(--chart-2))',
+    'Dinner': 'hsl(var(--chart-3))',
+    'Other': 'hsl(var(--chart-4))',
+};
+
+
 export default function Dashboard({ expenses, loading }: DashboardProps) {
   const stats = useMemo(() => {
     if (!expenses || expenses.length === 0) {
       return {
         totalSpend: 0,
         spendPerWife: [],
+        spendPerCategory: [],
         mostExpensiveItem: { item: '-', price: 0 },
         mostFrequentItem: { item: '-', count: 0 },
         everydayItems: [],
@@ -49,6 +59,13 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
         .reduce((acc, exp) => acc + Number(exp.price), 0);
       return { name: wife, total };
     });
+    
+    const spendPerCategory = EXPENSE_CATEGORIES.map(category => {
+        const total = expenses
+            .filter(exp => exp.category === category)
+            .reduce((acc, exp) => acc + Number(exp.price), 0);
+        return { name: category, total, fill: COLORS[category] };
+    }).filter(c => c.total > 0);
 
     const mostExpensiveItem = expenses.reduce(
       (max, exp) => (Number(exp.price) > max.price ? { item: exp.item, price: Number(exp.price) } : max),
@@ -75,7 +92,7 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
         .filter(([, dates]) => dates.size >= 20)
         .map(([item]) => item);
 
-    return { totalSpend, spendPerWife, mostExpensiveItem, mostFrequentItem, everydayItems };
+    return { totalSpend, spendPerWife, spendPerCategory, mostExpensiveItem, mostFrequentItem, everydayItems };
   }, [expenses]);
 
   return (
@@ -102,7 +119,7 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
         value={stats.everydayItems.length > 0 ? stats.everydayItems.join(', ') : '-'}
         loading={loading}
       />
-      <Card className="md:col-span-2 lg:col-span-4">
+      <Card className="md:col-span-2">
         <CardHeader>
           <CardTitle>Spend per Wife</CardTitle>
         </CardHeader>
@@ -134,6 +151,40 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
                     />
                     <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                     </BarChart>
+                </ResponsiveContainer>
+            )}
+        </CardContent>
+      </Card>
+      <Card className="md:col-span-2">
+        <CardHeader>
+          <CardTitle>Spend by Category</CardTitle>
+        </CardHeader>
+        <CardContent className="pl-2">
+            {loading ? (
+                <div className="w-full h-[350px] flex items-center justify-center">
+                    <Skeleton className="w-full h-full" />
+                </div>
+            ) : (
+                <ResponsiveContainer width="100%" height={350}>
+                    <PieChart>
+                        <Pie
+                            data={stats.spendPerCategory}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            outerRadius={120}
+                            dataKey="total"
+                        >
+                            {stats.spendPerCategory.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                            ))}
+                        </Pie>
+                         <Tooltip 
+                            cursor={{ fill: 'hsl(var(--accent) / 0.1)' }}
+                            content={<ChartTooltipContent formatter={(value, name) => `${name}: ₦${Number(value).toLocaleString()}`} />}
+                        />
+                    </PieChart>
                 </ResponsiveContainer>
             )}
         </CardContent>

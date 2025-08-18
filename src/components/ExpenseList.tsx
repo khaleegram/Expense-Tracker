@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import type { Expense, Wife } from '@/types';
-import { WIVES } from '@/types';
+import type { Expense, Wife, ExpenseCategory } from '@/types';
+import { WIVES, EXPENSE_CATEGORIES } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -54,6 +54,7 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading }: E
         item: formData.get('item') as string,
         price: Number(formData.get('price')),
         wife: formData.get('wife') as Wife,
+        category: formData.get('category') as ExpenseCategory,
       };
       await onUpdate(selectedExpense.id, updatedData);
       setIsEditDialogOpen(false);
@@ -69,6 +70,7 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading }: E
             <TableRow className="hover:bg-transparent">
               <TableHead>Date</TableHead>
               <TableHead>Item</TableHead>
+              <TableHead>Category</TableHead>
               <TableHead>Wife</TableHead>
               <TableHead className="text-right">Price</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -80,6 +82,7 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading }: E
                 <TableRow key={i}>
                   <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-8 ml-auto" /></TableCell>
@@ -90,6 +93,7 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading }: E
                 <TableRow key={expense.id} className="group">
                   <TableCell>{format(new Date(expense.date), 'dd MMM yyyy')}</TableCell>
                   <TableCell className="font-medium">{expense.item}</TableCell>
+                  <TableCell>{expense.category}</TableCell>
                   <TableCell><WifeIcon wife={expense.wife} /></TableCell>
                   <TableCell className="text-right">₦{expense.price.toLocaleString()}</TableCell>
                   <TableCell className="text-right">
@@ -114,7 +118,7 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading }: E
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center h-24">
+                <TableCell colSpan={6} className="text-center h-24">
                   No expenses for this month.
                 </TableCell>
               </TableRow>
@@ -138,6 +142,19 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading }: E
               <div>
                 <Label htmlFor="price">Price</Label>
                 <Input id="price" name="price" type="number" defaultValue={selectedExpense.price} />
+              </div>
+               <div>
+                <Label htmlFor="category">Category</Label>
+                <Select name="category" defaultValue={selectedExpense.category}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EXPENSE_CATEGORIES.map(cat => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="wife">Wife</Label>
