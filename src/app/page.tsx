@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Expense, ExpenseData, UniqueItem, Wife, Duty } from '@/types';
 import Dashboard from '@/components/Dashboard';
@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, ChevronRight, CookingPot, Utensils, Soup } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
-import { suggestWifeAssignment } from '@/ai/flows/wife-assignment-suggestion';
+import { getWifeOnDutyForDate } from '@/lib/duty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WifeIcon } from '@/components/WifeIcon';
 
@@ -55,31 +55,19 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const fetchDuty = async () => {
-      setDutyLoading(true);
-      try {
-        const dateStr = format(new Date(), 'yyyy-MM-dd');
-        const result = await suggestWifeAssignment({ date: dateStr });
-        setTodaysDuty(result.duty as Duty[]);
-      } catch (error) {
-        console.error("Failed to fetch today's duty schedule", error);
-        setTodaysDuty(null);
-      } finally {
-        setDutyLoading(false);
-      }
-    };
-    fetchDuty();
+    setDutyLoading(true);
+    const { duty } = getWifeOnDutyForDate(new Date());
+    setTodaysDuty(duty);
+    setDutyLoading(false);
   }, []);
-
+  
   const getWifeOnDuty = useCallback(async (date: Date): Promise<Wife | null> => {
     try {
-      const dateStr = format(date, 'yyyy-MM-dd');
-      const result = await suggestWifeAssignment({ date: dateStr });
-      // The primary wife is the one responsible for lunch
-      return result.primaryWife as Wife;
+        const { primaryWife } = getWifeOnDutyForDate(date);
+        return primaryWife;
     } catch (error) {
-      console.error("Failed to fetch wife on duty for date", date, error);
-      return null;
+        console.error("Failed to calculate wife on duty for date", date, error);
+        return null;
     }
   }, []);
 
@@ -107,14 +95,18 @@ export default function Home() {
   };
 
   const handleUpdateExpense = async (id: string, updatedExpense: Partial<Expense>) => {
+    const batch = writeBatch(db);
     const expenseRef = doc(db, 'expenses', id);
-    await updateDoc(expenseRef, updatedExpense);
+    batch.update(expenseRef, updatedExpense);
+    await batch.commit();
     await fetchExpensesAndItems();
   };
 
   const handleDeleteExpense = async (id: string) => {
     const expenseRef = doc(db, 'expenses', id);
-    await deleteDoc(expenseRef);
+    const batch = writeBatch(db);
+    batch.delete(expenseRef);
+    await batch.commit();
     await fetchExpensesAndItems();
   };
 
