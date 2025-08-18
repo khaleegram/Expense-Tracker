@@ -36,8 +36,9 @@ export default function Home() {
       const itemsData = itemsSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name } as UniqueItem));
       const seen = new Set();
       const filteredItems = itemsData.filter(item => {
-        const duplicate = seen.has(item.name.toLowerCase());
-        seen.add(item.name.toLowerCase());
+        const lowerCaseName = item.name.toLowerCase();
+        const duplicate = seen.has(lowerCaseName);
+        seen.add(lowerCaseName);
         return !duplicate;
       });
       setUniqueItems(filteredItems);

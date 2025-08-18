@@ -13,9 +13,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, Check, ChevronsUpDown, PlusCircle, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import type { Wife, UniqueItem, ExpenseData, ExpenseCategory } from '@/types';
+import type { UniqueItem, ExpenseData } from '@/types';
 import { WIVES, EXPENSE_CATEGORIES } from '@/types';
-import { suggestWifeAssignment } from '@/ai/flows/wife-assignment-suggestion';
 import { useToast } from '@/hooks/use-toast';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
@@ -53,25 +52,6 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
   });
   const { toast } = useToast();
   const itemInputRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  const date = form.watch('date');
-
-  useEffect(() => {
-    const getSuggestion = async () => {
-      if (date) {
-        try {
-          const dateStr = format(date, 'yyyy-MM-dd');
-          const suggestion = await suggestWifeAssignment({ date: dateStr });
-          if(fields.length === 1 && fields[0].item === '' && fields[0].price === 0) {
-            form.setValue('expenses.0.wife', suggestion.primaryWife as Wife);
-          }
-        } catch (error) {
-          console.error("AI suggestion failed:", error);
-        }
-      }
-    };
-    getSuggestion();
-  }, [date, fields.length, form]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
@@ -261,12 +241,13 @@ const Combobox = React.forwardRef<
     const [inputValue, setInputValue] = useState('');
 
     const handleSelect = (currentValue: string) => {
-        onChange(currentValue === value ? "" : currentValue);
+        onChange(currentValue);
         setOpen(false);
     };
     
     const handleCreate = () => {
         onChange(inputValue);
+        setInputValue('');
         setOpen(false);
     };
 
@@ -317,8 +298,8 @@ const Combobox = React.forwardRef<
                             {filteredOptions.map((option) => (
                                 <CommandItem
                                     key={option.value}
-                                    value={option.value}
-                                    onSelect={handleSelect}
+                                    value={option.label}
+                                    onSelect={() => handleSelect(option.value)}
                                 >
                                     <Check
                                         className={cn(
