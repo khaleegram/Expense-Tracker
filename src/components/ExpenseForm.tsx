@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -60,7 +61,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
       expenses: [{ item: '', price: 0, wife: 'Mama', category: 'Other' }],
     },
   });
-  const { fields, append, remove, update } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "expenses",
   });
@@ -70,7 +71,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
   const selectedDate = form.watch('date');
   const expensesWatcher = form.watch('expenses');
 
-   const getWifeOnDuty = (date: Date): Wife | null => {
+   const getWifeOnDuty = useCallback((date: Date): Wife | null => {
     try {
         const { primaryWife } = getWifeOnDutyForDate(date);
         return primaryWife;
@@ -78,29 +79,45 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
         console.error("Failed to calculate wife on duty for date", date, error);
         return null;
     }
-  };
+  }, []);
 
   useEffect(() => {
     const wifeOnDuty = getWifeOnDuty(selectedDate);
     if(wifeOnDuty) {
-        fields.forEach((field, index) => {
-            const currentCategory = form.getValues(`expenses.${index}.category`);
+        form.getValues('expenses').forEach((field, index) => {
+            const currentCategory = field.category;
+            const currentWife = field.wife;
+            let newWife = currentWife;
+
              if (currentCategory !== 'Other') {
-                update(index, { ...field, wife: wifeOnDuty });
+                if (currentWife !== wifeOnDuty) newWife = wifeOnDuty;
             } else {
-                update(index, { ...field, wife: 'N/A' });
+                if (currentWife !== 'N/A') newWife = 'N/A';
+            }
+            if (newWife !== currentWife) {
+                form.setValue(`expenses.${index}.wife`, newWife, { shouldValidate: true });
             }
         });
     }
-  }, [selectedDate, fields, update, form]);
+  }, [selectedDate, getWifeOnDuty, form]);
   
   useEffect(() => {
-    expensesWatcher.forEach((expense, index) => {
-      if (expense.category === 'Other' && expense.wife !== 'N/A') {
-        form.setValue(`expenses.${index}.wife`, 'N/A', { shouldValidate: true });
+    const subscription = form.watch((value, { name, type }) => {
+      if (type === 'change' && name?.startsWith('expenses') && name.endsWith('category')) {
+        const index = parseInt(name.split('.')[1]);
+        const newCategory = value.expenses?.[index]?.category;
+        const currentWife = value.expenses?.[index]?.wife;
+        
+        if (newCategory === 'Other' && currentWife !== 'N/A') {
+          form.setValue(`expenses.${index}.wife`, 'N/A', { shouldValidate: true });
+        } else if (newCategory !== 'Other' && currentWife === 'N/A') {
+          const wifeOnDuty = getWifeOnDuty(form.getValues('date'));
+          form.setValue(`expenses.${index}.wife`, wifeOnDuty || 'Mama', { shouldValidate: true });
+        }
       }
-    })
-  }, [expensesWatcher, form]);
+    });
+    return () => subscription.unsubscribe();
+  }, [form, getWifeOnDuty]);
 
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -109,7 +126,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
       const wifeOnDuty = getWifeOnDuty(new Date());
       form.reset({
         date: new Date(),
-        expenses: [{ item: '', price: 0, wife: wifeOnDuty || 'Mama', category: 'Other' }],
+        expenses: [{ item: '', price: 0, wife: 'N/A', category: 'Other' }],
       });
       toast({
         title: "Success",
@@ -129,7 +146,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
     append({ 
       item: '', 
       price: 0, 
-      wife: wifeOnDuty || 'Mama', 
+      wife: 'N/A', 
       category: 'Other' 
     });
      setTimeout(() => {
@@ -210,7 +227,6 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
                                         value={field.value}
                                         onChange={(value) => {
                                             field.onChange(value);
-                                            // Focus price input after selection
                                             document.getElementById(`expenses.${index}.price`)?.focus();
                                         }}
                                         ref={el => itemInputRefs.current[index] = el}
@@ -306,8 +322,11 @@ const Combobox = React.forwardRef<
     const [open, setOpen] = useState(false);
     const [inputValue, setInputValue] = useState("");
 
-    const handleSelect = (selectedValue: string) => {
-        onChange(selectedValue);
+    const handleSelect = (currentValue: string) => {
+        const option = options.find(opt => opt.value === currentValue);
+        if (option) {
+            onChange(option.value);
+        }
         setInputValue("");
         setOpen(false);
     };
@@ -355,23 +374,24 @@ const Combobox = React.forwardRef<
                         onValueChange={setInputValue}
                     />
                     <CommandList>
-                        <CommandEmpty>
-                            {showCreateOption ? (
-                               <div className="p-1">
-                                    <Button className="w-full" onClick={handleCreate}>
-                                        Create "{inputValue}"
-                                    </Button>
-                                </div>
-                            ) : (
-                                "No item found."
-                            )}
+                         {showCreateOption && (
+                            <CommandItem
+                                value={inputValue}
+                                onSelect={handleCreate}
+                                className="cursor-pointer"
+                            >
+                                Create "{inputValue}"
+                            </CommandItem>
+                        )}
+                        <CommandEmpty className={cn(showCreateOption && "hidden")}>
+                            No item found.
                         </CommandEmpty>
                         <CommandGroup>
                             {filteredOptions.map((option) => (
                                 <CommandItem
                                     key={option.value}
                                     value={option.value}
-                                    onSelect={() => handleSelect(option.value)}
+                                    onSelect={handleSelect}
                                 >
                                     <Check
                                         className={cn(
@@ -390,3 +410,5 @@ const Combobox = React.forwardRef<
     );
 });
 Combobox.displayName = "Combobox";
+
+    
