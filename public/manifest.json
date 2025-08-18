@@ -1,0 +1,22 @@
+
+{
+  "name": "Expense Eye",
+  "short_name": "Expense Eye",
+  "description": "Track household expenses with ease.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF9F0",
+  "theme_color": "#FFEA00",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

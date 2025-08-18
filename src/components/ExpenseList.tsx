@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -18,8 +19,8 @@ import { WifeIcon } from './WifeIcon';
 
 interface ExpenseListProps {
   expenses: Expense[];
-  onUpdate: (id: string, updatedExpense: Partial<Expense>) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  onUpdate: (id: string, originalPrice: number, updatedExpense: Partial<Expense>) => Promise<void>;
+  onDelete: (id: string, price: number) => Promise<void>;
   loading: boolean;
 }
 
@@ -40,7 +41,7 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading }: E
 
   const handleConfirmDelete = async () => {
     if (selectedExpense) {
-      await onDelete(selectedExpense.id);
+      await onDelete(selectedExpense.id, selectedExpense.price);
       setIsDeleteDialogOpen(false);
       setSelectedExpense(null);
     }
@@ -56,7 +57,7 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading }: E
         wife: formData.get('wife') as Wife,
         category: formData.get('category') as ExpenseCategory,
       };
-      await onUpdate(selectedExpense.id, updatedData);
+      await onUpdate(selectedExpense.id, selectedExpense.price, updatedData);
       setIsEditDialogOpen(false);
       setSelectedExpense(null);
     }
