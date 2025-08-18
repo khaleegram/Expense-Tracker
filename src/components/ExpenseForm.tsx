@@ -265,10 +265,10 @@ const Combobox = React.forwardRef<
     }, [value]);
 
     const handleSelect = (currentValue: string) => {
-        onChange(currentValue);
-        setInputValue(currentValue);
+        const newValue = currentValue === "create_new" ? inputValue : currentValue;
+        onChange(newValue);
+        setInputValue(newValue);
         setOpen(false);
-        // Move focus away to close keyboard on mobile
         (document.activeElement as HTMLElement)?.blur();
     };
     
@@ -277,6 +277,7 @@ const Combobox = React.forwardRef<
         onChange(search);
     };
 
+    const filteredOptions = options.filter(option => option.label.toLowerCase().includes(inputValue.toLowerCase()));
     const showCreateOption = inputValue && !options.some(option => option.label.toLowerCase() === inputValue.toLowerCase());
 
     return (
@@ -305,7 +306,8 @@ const Combobox = React.forwardRef<
                         <CommandEmpty>
                            {showCreateOption ? (
                              <CommandItem
-                                onSelect={() => handleSelect(inputValue)}
+                                value="create_new"
+                                onSelect={() => handleSelect("create_new")}
                              >
                                 Create "{inputValue}"
                              </CommandItem>
@@ -314,7 +316,7 @@ const Combobox = React.forwardRef<
                            )}
                         </CommandEmpty>
                         <CommandGroup>
-                            {options.map((option) => (
+                            {filteredOptions.map((option) => (
                                 <CommandItem
                                     key={option.value}
                                     value={option.value}
