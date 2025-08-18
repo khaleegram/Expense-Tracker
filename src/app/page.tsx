@@ -102,7 +102,14 @@ export default function Home() {
     const end = endOfMonth(currentMonth);
     return expenses.filter(exp => {
       const expDate = new Date(exp.date);
-      return expDate >= start && expDate <= end;
+      // Adjust for timezone differences by comparing date parts
+      const expYear = expDate.getUTCFullYear();
+      const expMonth = expDate.getUTCMonth();
+      const startYear = start.getFullYear();
+      const startMonth = start.getMonth();
+      const endYear = end.getFullYear();
+      const endMonth = end.getMonth();
+      return (expYear > startYear || (expYear === startYear && expMonth >= startMonth)) && (expYear < endYear || (expYear === endYear && expMonth <= endMonth));
     });
   }, [expenses, currentMonth]);
 

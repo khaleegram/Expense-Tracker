@@ -4,8 +4,8 @@ import React, { useMemo } from 'react';
 import type { Expense, Wife, ExpenseCategory } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Pie, PieChart, Cell } from 'recharts';
-import { ChartTooltipContent } from '@/components/ui/chart';
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Pie, PieChart, Cell, Tooltip } from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { WifeIcon } from './WifeIcon';
 import { EXPENSE_CATEGORIES } from '@/types';
 
@@ -30,11 +30,38 @@ const StatCard = ({ title, value, loading, icon }: { title: string, value: strin
   </Card>
 );
 
-const COLORS = {
-    'Breakfast': 'hsl(var(--chart-1))',
-    'Lunch': 'hsl(var(--chart-2))',
-    'Dinner': 'hsl(var(--chart-3))',
-    'Other': 'hsl(var(--chart-4))',
+const chartConfig = {
+  total: {
+    label: "Total",
+  },
+  'Wife A': {
+    label: 'Wife A',
+    color: 'hsl(var(--chart-1))',
+  },
+  'Wife B': {
+    label: 'Wife B',
+    color: 'hsl(var(--chart-2))',
+  },
+  'Wife C': {
+    label: 'Wife C',
+    color: 'hsl(var(--chart-3))',
+  },
+    'Breakfast': {
+    label: 'Breakfast',
+    color: 'hsl(var(--chart-1))',
+  },
+  'Lunch': {
+    label: 'Lunch',
+    color: 'hsl(var(--chart-2))',
+  },
+  'Dinner': {
+    label: 'Dinner',
+    color: 'hsl(var(--chart-3))',
+  },
+  'Other': {
+    label: 'Other',
+    color: 'hsl(var(--chart-4))',
+  },
 };
 
 
@@ -57,14 +84,14 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
       const total = expenses
         .filter(exp => exp.wife === wife)
         .reduce((acc, exp) => acc + Number(exp.price), 0);
-      return { name: wife, total };
+      return { name: wife, total, fill: `var(--color-${wife.replace(' ', '')})` };
     });
     
     const spendPerCategory = EXPENSE_CATEGORIES.map(category => {
         const total = expenses
             .filter(exp => exp.category === category)
             .reduce((acc, exp) => acc + Number(exp.price), 0);
-        return { name: category, total, fill: COLORS[category] };
+        return { name: category, total, fill: `var(--color-${category})` };
     }).filter(c => c.total > 0);
 
     const mostExpensiveItem = expenses.reduce(
@@ -129,8 +156,8 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
                     <Skeleton className="w-full h-full" />
                 </div>
             ) : (
-                <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={stats.spendPerWife}>
+                <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+                    <BarChart accessibilityLayer data={stats.spendPerWife}>
                     <XAxis
                         dataKey="name"
                         stroke="#888888"
@@ -145,13 +172,13 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
                         axisLine={false}
                         tickFormatter={(value) => `₦${Number(value) / 1000}k`}
                     />
-                    <Tooltip 
+                    <ChartTooltip 
                         cursor={{ fill: 'hsl(var(--accent) / 0.1)' }}
                         content={<ChartTooltipContent formatter={(value) => `₦${Number(value).toLocaleString()}`} />}
                     />
                     <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                     </BarChart>
-                </ResponsiveContainer>
+                </ChartContainer>
             )}
         </CardContent>
       </Card>
@@ -165,8 +192,12 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
                     <Skeleton className="w-full h-full" />
                 </div>
             ) : (
-                <ResponsiveContainer width="100%" height={350}>
-                    <PieChart>
+                <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+                    <PieChart accessibilityLayer>
+                        <ChartTooltip 
+                            cursor={{ fill: 'hsl(var(--accent) / 0.1)' }}
+                            content={<ChartTooltipContent formatter={(value, name) => `${name}: ₦${Number(value).toLocaleString()}`} />}
+                        />
                         <Pie
                             data={stats.spendPerCategory}
                             cx="50%"
@@ -176,16 +207,12 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
                             outerRadius={120}
                             dataKey="total"
                         >
-                            {stats.spendPerCategory.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                            {stats.spendPerCategory.map((entry) => (
+                                <Cell key={entry.name} fill={entry.fill} />
                             ))}
                         </Pie>
-                         <Tooltip 
-                            cursor={{ fill: 'hsl(var(--accent) / 0.1)' }}
-                            content={<ChartTooltipContent formatter={(value, name) => `${name}: ₦${Number(value).toLocaleString()}`} />}
-                        />
                     </PieChart>
-                </ResponsiveContainer>
+                </ChartContainer>
             )}
         </CardContent>
       </Card>
