@@ -264,7 +264,12 @@ const Combobox = React.forwardRef<
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                <Command>
+                <Command
+                    filter={(value, search) => {
+                        if (value.toLowerCase().includes(search.toLowerCase())) return 1;
+                        return 0;
+                    }}
+                >
                     <CommandInput 
                       placeholder="Search or create item..."
                       value={inputValue}
@@ -275,7 +280,7 @@ const Combobox = React.forwardRef<
                           {inputValue && (
                              <CommandItem
                                 value={inputValue}
-                                onSelect={handleSelect}
+                                onSelect={() => handleSelect(inputValue)}
                             >
                                 Create "{inputValue}"
                             </CommandItem>
