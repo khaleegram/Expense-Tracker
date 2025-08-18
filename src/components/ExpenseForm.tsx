@@ -292,7 +292,7 @@ const Combobox = React.forwardRef<
                                 <CommandItem
                                     key={option.value}
                                     value={option.value}
-                                    onSelect={handleSelect}
+                                    onSelect={() => handleSelect(option.value)}
                                 >
                                     {option.label}
                                 </CommandItem>
