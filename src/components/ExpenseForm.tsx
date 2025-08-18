@@ -236,6 +236,18 @@ const Combobox = React.forwardRef<
     }
 >(({ options, value, onChange, onKeyDown }, ref) => {
     const [open, setOpen] = React.useState(false);
+    const [inputValue, setInputValue] = React.useState(value || '');
+
+    useEffect(() => {
+        setInputValue(value || '');
+    }, [value]);
+
+    const handleSelect = (currentValue: string) => {
+        const newValue = currentValue === value ? "" : currentValue;
+        onChange(newValue);
+        setInputValue(newValue);
+        setOpen(false);
+    };
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -248,30 +260,34 @@ const Combobox = React.forwardRef<
                     ref={ref}
                     onKeyDown={onKeyDown}
                 >
-                    {value
-                        ? options.find((option) => option.value === value)?.label
-                        : "Select item..."}
+                    {value || "Select item..."}
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                 <Command>
-                    <CommandInput placeholder="Search item..." />
+                    <CommandInput 
+                      placeholder="Search or create item..."
+                      value={inputValue}
+                      onValueChange={setInputValue}
+                    />
                     <CommandList>
-                        <CommandEmpty>No item found.</CommandEmpty>
+                        <CommandEmpty>
+                          {inputValue && (
+                             <CommandItem
+                                value={inputValue}
+                                onSelect={handleSelect}
+                            >
+                                Create "{inputValue}"
+                            </CommandItem>
+                          )}
+                          {!inputValue && "No item found."}
+                        </CommandEmpty>
                         <CommandGroup>
                             {options.map((option) => (
                                 <CommandItem
                                     key={option.value}
                                     value={option.value}
-                                    onSelect={(currentValue) => {
-                                        const newValue = currentValue === value ? "" : options.find(o => o.label.toLowerCase() === currentValue)?.value || ''
-                                        onChange(newValue);
-                                        setOpen(false);
-                                        // create a new item if not found
-                                        if(!options.find(o => o.label.toLowerCase() === currentValue)) {
-                                            onChange(currentValue);
-                                        }
-                                    }}
+                                    onSelect={handleSelect}
                                 >
                                     {option.label}
                                 </CommandItem>
