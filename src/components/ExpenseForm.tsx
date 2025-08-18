@@ -245,8 +245,12 @@ const Combobox = React.forwardRef<
     const handleSelect = (currentValue: string) => {
         const newValue = currentValue === value ? "" : currentValue;
         onChange(newValue);
-        setInputValue(newValue);
         setOpen(false);
+    };
+
+    const handleInputChange = (search: string) => {
+        setInputValue(search);
+        onChange(search);
     };
 
     return (
@@ -264,28 +268,19 @@ const Combobox = React.forwardRef<
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                <Command
-                    filter={(value, search) => {
-                        if (value.toLowerCase().includes(search.toLowerCase())) return 1;
-                        return 0;
-                    }}
-                >
+                <Command>
                     <CommandInput 
                       placeholder="Search or create item..."
                       value={inputValue}
-                      onValueChange={setInputValue}
+                      onValueChange={handleInputChange}
                     />
                     <CommandList>
                         <CommandEmpty>
-                          {inputValue && (
-                             <CommandItem
-                                value={inputValue}
-                                onSelect={() => handleSelect(inputValue)}
-                            >
-                                Create "{inputValue}"
-                            </CommandItem>
-                          )}
-                          {!inputValue && "No item found."}
+                           <div
+                              className="py-6 text-center text-sm"
+                           >
+                              No item found. Create a new one.
+                           </div>
                         </CommandEmpty>
                         <CommandGroup>
                             {options.map((option) => (
@@ -304,4 +299,4 @@ const Combobox = React.forwardRef<
         </Popover>
     );
 });
-Combobox.displayName = "Combobox"
+Combobox.displayName = "Combobox";
