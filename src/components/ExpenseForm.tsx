@@ -265,10 +265,11 @@ const Combobox = React.forwardRef<
     }, [value]);
 
     const handleSelect = (currentValue: string) => {
-        const newValue = currentValue === inputValue ? currentValue : currentValue;
-        onChange(newValue);
-        setInputValue(newValue);
+        onChange(currentValue);
+        setInputValue(currentValue);
         setOpen(false);
+        // Move focus away to close keyboard on mobile
+        (document.activeElement as HTMLElement)?.blur();
     };
     
     const handleInputChange = (search: string) => {
@@ -298,7 +299,7 @@ const Combobox = React.forwardRef<
                     <CommandInput
                         placeholder="Search or create item..."
                         value={inputValue}
-                        onValueValueChange={handleInputChange}
+                        onValueChange={handleInputChange}
                     />
                     <CommandList>
                         <CommandEmpty>
