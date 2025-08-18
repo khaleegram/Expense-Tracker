@@ -281,12 +281,13 @@ const Combobox = React.forwardRef<
                         <CommandEmpty>
                            {showCreateOption ? (
                              <CommandItem
-                                value={inputValue}
                                 onSelect={() => handleSelect(inputValue)}
                              >
                                 Create "{inputValue}"
                              </CommandItem>
-                           ) : "No item found."}
+                           ) : (
+                            <span>No item found.</span>
+                           )}
                         </CommandEmpty>
                         <CommandGroup>
                             {options.map((option) => (
