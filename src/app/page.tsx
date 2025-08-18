@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, writeBatch } from 'firebase/firestore';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Expense, ExpenseData, UniqueItem, Wife, Duty } from '@/types';
 import Dashboard from '@/components/Dashboard';
@@ -22,7 +22,7 @@ export default function Home() {
   const [uniqueItems, setUniqueItems] = useState<UniqueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [dutySchedule, setDutySchedule] = useState<Duty[] | null>(null);
+  const [todaysDuty, setTodaysDuty] = useState<Duty[] | null>(null);
   const [dutyLoading, setDutyLoading] = useState(true);
 
   const fetchExpensesAndItems = async () => {
@@ -60,16 +60,29 @@ export default function Home() {
       try {
         const dateStr = format(new Date(), 'yyyy-MM-dd');
         const result = await suggestWifeAssignment({ date: dateStr });
-        setDutySchedule(result.duty as Duty[]);
+        setTodaysDuty(result.duty as Duty[]);
       } catch (error) {
-        console.error("Failed to fetch duty schedule", error);
-        setDutySchedule(null);
+        console.error("Failed to fetch today's duty schedule", error);
+        setTodaysDuty(null);
       } finally {
         setDutyLoading(false);
       }
     };
     fetchDuty();
   }, []);
+
+  const getWifeOnDuty = useCallback(async (date: Date): Promise<Wife | null> => {
+    try {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      const result = await suggestWifeAssignment({ date: dateStr });
+      // The primary wife is the one responsible for lunch
+      return result.primaryWife as Wife;
+    } catch (error) {
+      console.error("Failed to fetch wife on duty for date", date, error);
+      return null;
+    }
+  }, []);
+
 
   const handleSaveExpenses = async (newExpenses: Omit<ExpenseData, 'date'>[], date: Date) => {
     const batch = writeBatch(db);
@@ -154,9 +167,9 @@ export default function Home() {
                             <Skeleton className="h-4 w-[100px]" />
                         </div>
                     </div>
-                ) : dutySchedule && dutySchedule.length > 0 ? (
+                ) : todaysDuty && todaysDuty.length > 0 ? (
                     <div className="flex flex-col sm:flex-row gap-4">
-                        {dutySchedule.map(duty => (
+                        {todaysDuty.map(duty => (
                             <div key={duty.wife} className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
                                 <WifeIcon wife={duty.wife} />
                                 <div>
@@ -203,7 +216,11 @@ export default function Home() {
             <TabsContent value="add-expense">
               <Card>
                 <CardContent className="pt-6">
-                  <ExpenseForm onSave={handleSaveExpenses} uniqueItems={uniqueItems} />
+                  <ExpenseForm 
+                    onSave={handleSaveExpenses} 
+                    uniqueItems={uniqueItems} 
+                    getWifeOnDuty={getWifeOnDuty}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>

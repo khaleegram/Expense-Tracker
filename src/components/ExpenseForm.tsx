@@ -13,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, Check, ChevronsUpDown, PlusCircle, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import type { UniqueItem, ExpenseData } from '@/types';
+import type { UniqueItem, ExpenseData, Wife } from '@/types';
 import { WIVES, EXPENSE_CATEGORIES } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -36,9 +36,10 @@ const formSchema = z.object({
 interface ExpenseFormProps {
   onSave: (expenses: Omit<ExpenseData, 'date'>[], date: Date) => Promise<void>;
   uniqueItems: UniqueItem[];
+  getWifeOnDuty: (date: Date) => Promise<Wife | null>;
 }
 
-export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
+export default function ExpenseForm({ onSave, uniqueItems, getWifeOnDuty }: ExpenseFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -46,12 +47,29 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
       expenses: [{ item: '', price: 0, wife: 'Wife A', category: 'Other' }],
     },
   });
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "expenses",
   });
   const { toast } = useToast();
   const itemInputRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const selectedDate = form.watch('date');
+
+  useEffect(() => {
+    const updateWifeForDate = async () => {
+      const wifeOnDuty = await getWifeOnDuty(selectedDate);
+      if (wifeOnDuty) {
+        fields.forEach((field, index) => {
+          update(index, { ...field, wife: wifeOnDuty });
+        });
+      }
+    };
+    if (selectedDate) {
+      updateWifeForDate();
+    }
+  }, [selectedDate, getWifeOnDuty, fields, update]);
+
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
@@ -73,8 +91,14 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
     }
   };
 
-  const addExpenseRow = () => {
-    append({ item: '', price: 0, wife: form.getValues('expenses.0.wife') || 'Wife A', category: 'Other' });
+  const addExpenseRow = async () => {
+    const wifeOnDuty = await getWifeOnDuty(selectedDate);
+    append({ 
+      item: '', 
+      price: 0, 
+      wife: wifeOnDuty || 'Wife A', 
+      category: 'Other' 
+    });
   };
   
   const handleKeyDown = (e: React.KeyboardEvent, index: number, field: 'item' | 'price') => {
@@ -240,8 +264,9 @@ const Combobox = React.forwardRef<
     const [open, setOpen] = useState(false);
     const [inputValue, setInputValue] = useState('');
 
-    const handleSelect = (currentValue: string) => {
-        onChange(currentValue);
+    const handleSelect = (selectedValue: string) => {
+        onChange(selectedValue);
+        setInputValue('');
         setOpen(false);
     };
     
@@ -273,7 +298,7 @@ const Combobox = React.forwardRef<
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                <Command>
+                <Command shouldFilter={false}>
                     <CommandInput
                         placeholder="Search or create item..."
                         value={inputValue}
@@ -298,7 +323,7 @@ const Combobox = React.forwardRef<
                             {filteredOptions.map((option) => (
                                 <CommandItem
                                     key={option.value}
-                                    value={option.label}
+                                    value={option.value}
                                     onSelect={() => handleSelect(option.value)}
                                 >
                                     <Check

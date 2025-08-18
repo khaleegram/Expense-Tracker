@@ -10,7 +10,6 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { differenceInDays, parseISO } from 'date-fns';
 
 const WifeAssignmentSuggestionInputSchema = z.object({
   date: z.string().describe('The date for which to suggest a wife assignment (YYYY-MM-DD).'),
@@ -47,11 +46,11 @@ The schedule is a cycle for each wife over three days:
 
 The rotation order is Wife A -> Wife B -> Wife C -> Wife A, and so on.
 
-The schedule officially starts with this specific state on **July 29th, 2024**:
-- On **July 29th, 2024**, Wife C is responsible for **Breakfast and Lunch** (finishing her turn), AND Wife A is responsible for **Dinner** (starting her turn).
-- On **July 30th, 2024**, Wife A is responsible for **Breakfast, Lunch, and Dinner**.
-- On **July 31st, 2024**, Wife A is responsible for **Breakfast and Lunch**, AND Wife B is responsible for **Dinner**.
-- On **August 1st, 2024**, Wife B is responsible for **Breakfast, Lunch, and Dinner**.
+The schedule officially starts with this specific state on **July 18th, 2024**:
+- On **July 18th, 2024**, Wife C is responsible for **Breakfast and Lunch** (finishing her turn), AND Wife A is responsible for **Dinner** (starting her turn).
+- On **July 19th, 2024**, Wife A is responsible for **Breakfast, Lunch, and Dinner**.
+- On **July 20th, 2024**, Wife A is responsible for **Breakfast and Lunch**, AND Wife B is responsible for **Dinner**.
+- On **July 21st, 2024**, Wife B is responsible for **Breakfast, Lunch, and Dinner**.
 ...and so on.
 
 Given the date {{{date}}}, determine which wife (or wives) are on duty and which meals they are responsible for. The 'primaryWife' should be the one responsible for lunch on the given day.
