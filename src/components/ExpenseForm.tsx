@@ -258,6 +258,8 @@ const Combobox = React.forwardRef<
         option.label.toLowerCase().includes(inputValue.toLowerCase())
     );
 
+    const showCreateOption = inputValue && !options.some(option => option.label.toLowerCase() === inputValue.toLowerCase());
+
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
@@ -282,7 +284,7 @@ const Combobox = React.forwardRef<
                     />
                     <CommandList>
                         <CommandEmpty>
-                           {inputValue && (
+                           {showCreateOption && (
                              <CommandItem
                                 value={inputValue}
                                 onSelect={() => handleSelect(inputValue)}
@@ -290,6 +292,7 @@ const Combobox = React.forwardRef<
                                 Create "{inputValue}"
                              </CommandItem>
                            )}
+                           {!showCreateOption && "No item found."}
                         </CommandEmpty>
                         <CommandGroup>
                             {filteredOptions.map((option) => (
