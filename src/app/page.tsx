@@ -34,7 +34,14 @@ export default function Home() {
 
       const itemsSnapshot = await getDocs(collection(db, 'items'));
       const itemsData = itemsSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name } as UniqueItem));
-      setUniqueItems(itemsData);
+      const seen = new Set();
+      const filteredItems = itemsData.filter(item => {
+        const duplicate = seen.has(item.name.toLowerCase());
+        seen.add(item.name.toLowerCase());
+        return !duplicate;
+      });
+      setUniqueItems(filteredItems);
+
     } catch (error) {
       console.error("Error fetching data: ", error);
     } finally {
