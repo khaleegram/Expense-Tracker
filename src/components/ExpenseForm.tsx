@@ -371,9 +371,7 @@ const Combobox = React.forwardRef<
                         onValueChange={setInputValue}
                     />
                     <CommandList>
-                         {filteredOptions.length === 0 && !showCreateOption && (
-                            <CommandEmpty>No item found.</CommandEmpty>
-                         )}
+                         <CommandEmpty>No item found.</CommandEmpty>
                          <CommandGroup>
                             {showCreateOption && (
                                 <CommandItem
@@ -388,7 +386,9 @@ const Combobox = React.forwardRef<
                                 <CommandItem
                                     key={option.value}
                                     value={option.value}
-                                    onSelect={handleSelect}
+                                    onSelect={(currentValue) => {
+                                        handleSelect(currentValue);
+                                    }}
                                 >
                                     <Check
                                         className={cn(
