@@ -192,7 +192,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
                     </Button>
                   </FormControl>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 z-50 pointer-events-auto" align="start">
                   <Calendar
                     mode="single"
                     selected={field.value}
@@ -261,7 +261,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
                                 <SelectValue placeholder="Select category" />
                               </SelectTrigger>
                             </FormControl>
-                            <SelectContent>
+                            <SelectContent className="z-50 pointer-events-auto">
                               {EXPENSE_CATEGORIES.map(category => (
                                 <SelectItem key={category} value={category}>{category}</SelectItem>
                               ))}
@@ -282,7 +282,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
                                 <SelectValue placeholder="Select wife" />
                               </SelectTrigger>
                             </FormControl>
-                            <SelectContent>
+                            <SelectContent className="z-50 pointer-events-auto">
                               {WIVES.map(wife => (
                                 <SelectItem key={wife} value={wife}>{wife}</SelectItem>
                               ))}
@@ -363,7 +363,7 @@ const Combobox = React.forwardRef<
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-50 pointer-events-auto">
                 <Command shouldFilter={false}>
                     <CommandInput
                         placeholder="Search or create item..."
