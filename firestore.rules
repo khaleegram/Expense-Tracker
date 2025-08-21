@@ -2,9 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Allow public read/write to the single balance document
-    match /balance/current {
-      allow read, write: if true;
+    // Allow public read/write to ONLY one balance doc
+    match /balance/{docId} {
+      allow read, write: if docId == "current";
     }
 
     // Allow public read/write to all expenses
