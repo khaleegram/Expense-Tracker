@@ -371,19 +371,19 @@ const Combobox = React.forwardRef<
                         onValueChange={setInputValue}
                     />
                     <CommandList>
-                         {showCreateOption && (
-                            <CommandItem
-                                value={inputValue}
-                                onSelect={handleCreate}
-                                className="cursor-pointer"
-                            >
-                                Create "{inputValue}"
-                            </CommandItem>
-                        )}
-                        <CommandEmpty className={cn(showCreateOption && "hidden")}>
-                            No item found.
-                        </CommandEmpty>
-                        <CommandGroup>
+                         {filteredOptions.length === 0 && !showCreateOption && (
+                            <CommandEmpty>No item found.</CommandEmpty>
+                         )}
+                         <CommandGroup>
+                            {showCreateOption && (
+                                <CommandItem
+                                    value={inputValue}
+                                    onSelect={handleCreate}
+                                    className="cursor-pointer"
+                                >
+                                    Create "{inputValue}"
+                                </CommandItem>
+                            )}
                             {filteredOptions.map((option) => (
                                 <CommandItem
                                     key={option.value}
