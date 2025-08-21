@@ -323,10 +323,7 @@ const Combobox = React.forwardRef<
     const [inputValue, setInputValue] = useState("");
 
     const handleSelect = (currentValue: string) => {
-        const option = options.find(opt => opt.value === currentValue);
-        if (option) {
-            onChange(option.value);
-        }
+        onChange(currentValue);
         setInputValue("");
         setOpen(false);
     };

@@ -1,10 +1,9 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, getDocs, writeBatch, doc, runTransaction, getDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, runTransaction, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Expense, ExpenseData, UniqueItem, Wife, Duty } from '@/types';
+import type { Expense, ExpenseData, UniqueItem, Duty } from '@/types';
 import Dashboard from '@/components/Dashboard';
 import ExpenseForm from '@/components/ExpenseForm';
 import ExpenseList from '@/components/ExpenseList';
@@ -42,9 +41,9 @@ export default function Home() {
       // Fetch Items
       const itemsSnapshot = await getDocs(collection(db, 'items'));
       const itemsData = itemsSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name } as UniqueItem));
-       const seen = new Set();
+      const seen = new Set();
       const filteredItems = itemsData.filter(item => {
-        const lowerCaseName = item.name.toLowerCase();
+        const lowerCaseName = (item.name || '').toLowerCase();
         const duplicate = seen.has(lowerCaseName);
         if (!duplicate) {
           seen.add(lowerCaseName);
@@ -57,7 +56,8 @@ export default function Home() {
       const balanceRef = doc(db, 'balance', 'current');
       const balanceSnap = await getDoc(balanceRef);
       if (balanceSnap.exists()) {
-        setBalance(balanceSnap.data().amount);
+        const amt = (balanceSnap.data() as any).amount ?? 0;
+        setBalance(amt);
       } else {
         // Document doesn't exist, so create it.
         await setDoc(balanceRef, { amount: 0 });
@@ -66,7 +66,7 @@ export default function Home() {
 
     } catch (error) {
       console.error("Error fetching data: ", error);
-       toast({
+      toast({
         variant: "destructive",
         title: "Error Fetching Data",
         description: "Could not fetch app data. Please check Firestore permissions and configuration.",
@@ -94,14 +94,19 @@ export default function Home() {
     try {
         await runTransaction(db, async (transaction) => {
             const balanceDoc = await transaction.get(balanceRef);
-            const currentBalance = balanceDoc.exists() ? balanceDoc.data().amount : 0;
+            const currentBalance = balanceDoc.exists() ? ((balanceDoc.data() as any).amount ?? 0) : 0;
             const newBalance = currentBalance - totalNewExpense;
-            
+
             if (newBalance < 0) {
               throw new Error("Insufficient balance.");
             }
-            
-            transaction.set(balanceRef, { amount: newBalance });
+
+            // If doc exists, update. Otherwise create with the newBalance.
+            if (balanceDoc.exists()) {
+              transaction.update(balanceRef, { amount: newBalance });
+            } else {
+              transaction.set(balanceRef, { amount: newBalance });
+            }
 
             const dateStr = format(date, 'yyyy-MM-dd');
             newExpenses.forEach(expense => {
@@ -109,7 +114,7 @@ export default function Home() {
                 transaction.set(expenseRef, { ...expense, date: dateStr });
             });
 
-            const currentItems = new Set(uniqueItems.map(item => item.name.toLowerCase()));
+            const currentItems = new Set(uniqueItems.map(item => (item.name || '').toLowerCase()));
             for (const expense of newExpenses) {
                 if (!currentItems.has(expense.item.toLowerCase())) {
                     const itemRef = doc(collection(db, "items"));
@@ -141,14 +146,19 @@ export default function Home() {
     try {
         await runTransaction(db, async (transaction) => {
             const balanceDoc = await transaction.get(balanceRef);
-            const currentBalance = balanceDoc.exists() ? balanceDoc.data().amount : 0;
+            const currentBalance = balanceDoc.exists() ? ((balanceDoc.data() as any).amount ?? 0) : 0;
             const newBalance = currentBalance - priceDifference;
             
             if (newBalance < 0) {
               throw new Error("Insufficient balance.");
             }
 
-            transaction.set(balanceRef, { amount: newBalance });
+            if (balanceDoc.exists()) {
+              transaction.update(balanceRef, { amount: newBalance });
+            } else {
+              transaction.set(balanceRef, { amount: newBalance });
+            }
+
             transaction.update(expenseRef, updatedExpense);
         });
         toast({
@@ -173,10 +183,15 @@ export default function Home() {
     try {
         await runTransaction(db, async (transaction) => {
             const balanceDoc = await transaction.get(balanceRef);
-            const currentBalance = balanceDoc.exists() ? balanceDoc.data().amount : 0;
+            const currentBalance = balanceDoc.exists() ? ((balanceDoc.data() as any).amount ?? 0) : 0;
             const newBalance = currentBalance + price;
 
-            transaction.set(balanceRef, { amount: newBalance });
+            if (balanceDoc.exists()) {
+              transaction.update(balanceRef, { amount: newBalance });
+            } else {
+              transaction.set(balanceRef, { amount: newBalance });
+            }
+
             transaction.delete(expenseRef);
         });
 
@@ -207,9 +222,14 @@ export default function Home() {
     try {
       await runTransaction(db, async (transaction) => {
         const balanceDoc = await transaction.get(balanceRef);
-        const currentBalance = balanceDoc.exists() ? balanceDoc.data().amount : 0;
+        const currentBalance = balanceDoc.exists() ? ((balanceDoc.data() as any).amount ?? 0) : 0;
         const newBalance = currentBalance + amount;
-        transaction.set(balanceRef, { amount: newBalance });
+
+        if (balanceDoc.exists()) {
+          transaction.update(balanceRef, { amount: newBalance });
+        } else {
+          transaction.set(balanceRef, { amount: newBalance });
+        }
       });
 
       toast({
