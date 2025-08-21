@@ -1,18 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow public read/write access to expenses
+
+    // Allow public read/write to the single balance document
+    match /balance/current {
+      allow read, write: if true;
+    }
+
+    // Allow public read/write to all expenses
     match /expenses/{expenseId} {
       allow read, write: if true;
     }
 
-    // Allow public read/write access to items
+    // Allow public read/write to all items
     match /items/{itemId} {
-      allow read, write: if true;
-    }
-
-    // Allow public read/write access to the balance
-    match /balance/{balanceId} {
       allow read, write: if true;
     }
   }
