@@ -12,7 +12,7 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, CookingPot, Utensils, Soup, PlusCircle, UserCheck, UserX } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CookingPot, Utensils, Soup, PlusCircle } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { getWifeOnDutyForDate } from '@/lib/duty';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,6 +38,16 @@ export default function Home() {
   const fetchAppData = useCallback(async () => {
     setLoading(true);
     try {
+      // Fetch Balance and initialize if it doesn't exist
+      const balanceRef = doc(db, 'balance', 'current');
+      const balanceSnap = await getDoc(balanceRef);
+      if (balanceSnap.exists()) {
+        setBalance(balanceSnap.data().amount ?? 0);
+      } else {
+        await setDoc(balanceRef, { amount: 0 });
+        setBalance(0);
+      }
+
       // Fetch Expenses
       const expensesSnapshot = await getDocs(collection(db, 'expenses'));
       const expensesData = expensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
@@ -56,17 +66,6 @@ export default function Home() {
         return !duplicate;
       });
       setUniqueItems(filteredItems);
-
-      // Fetch Balance and initialize if it doesn't exist
-      const balanceRef = doc(db, 'balance', 'current');
-      const balanceSnap = await getDoc(balanceRef);
-      if (balanceSnap.exists()) {
-        const amt = (balanceSnap.data() as any).amount ?? 0;
-        setBalance(amt);
-      } else {
-        await setDoc(balanceRef, { amount: 0 });
-        setBalance(0);
-      }
 
       // Fetch Roster
       const rosterRef = doc(db, 'roster', 'current');
@@ -122,12 +121,13 @@ export default function Home() {
       ? roster.filter(w => w !== wife)
       : [...roster, wife];
     
-    // Sort to maintain consistent order
+    // Sort to maintain consistent order based on the original WIVES array
     newRoster.sort((a, b) => WIVES.indexOf(a) - WIVES.indexOf(b));
 
     const rosterRef = doc(db, 'roster', 'current');
     try {
-      await updateDoc(rosterRef, { availableWives: newRoster });
+      // Use setDoc to create if it doesn't exist, or update if it does.
+      await setDoc(rosterRef, { availableWives: newRoster }, { merge: true });
       setRoster(newRoster); // Update local state
       toast({
         title: "Roster Updated",
@@ -155,6 +155,7 @@ export default function Home() {
             if (balanceDoc.exists()) {
                 currentBalance = balanceDoc.data().amount ?? 0;
             } else {
+                // If balance doc doesn't exist, transaction will create it with 0.
                 transaction.set(balanceRef, { amount: 0 });
             }
 
@@ -208,13 +209,14 @@ export default function Home() {
             if (balanceDoc.exists()) {
                 currentBalance = balanceDoc.data().amount ?? 0;
             } else {
+                 // This case is unlikely if app initializes correctly, but safe to handle.
                  transaction.set(balanceRef, { amount: 0 });
             }
 
             const newBalance = currentBalance - priceDifference;
             
             if (newBalance < 0) {
-              throw new Error("Insufficient balance.");
+              throw new Error("Insufficient balance for this update.");
             }
 
             transaction.update(balanceRef, { amount: newBalance });
@@ -246,6 +248,7 @@ export default function Home() {
             if (balanceDoc.exists()) {
                 currentBalance = balanceDoc.data().amount ?? 0;
             } else {
+                // This case is unlikely if app initializes correctly, but safe to handle.
                 transaction.set(balanceRef, { amount: 0 });
             }
             const newBalance = currentBalance + price;
@@ -285,6 +288,7 @@ export default function Home() {
         if(balanceDoc.exists()){
             currentBalance = balanceDoc.data().amount ?? 0;
         } else {
+             // If balance doc doesn't exist, transaction will create it with 0.
              transaction.set(balanceRef, { amount: 0 });
         }
         
@@ -386,7 +390,7 @@ export default function Home() {
                 <CardContent className="space-y-4">
                   {WIVES.map(wife => (
                     <div key={wife} className="flex items-center justify-between">
-                      <Label htmlFor={`roster-${wife}`} className="flex items-center gap-2">
+                      <Label htmlFor={`roster-${wife}`} className="flex items-center gap-2 cursor-pointer">
                         <WifeIcon wife={wife} />
                         {wife}
                       </Label>
@@ -476,4 +480,3 @@ export default function Home() {
     </div>
   );
 }
-
