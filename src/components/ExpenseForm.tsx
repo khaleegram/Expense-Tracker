@@ -11,13 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Check, ChevronsUpDown, PlusCircle, Trash2 } from 'lucide-react';
+import { CalendarIcon, PlusCircle, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import type { UniqueItem, ExpenseData, Wife } from '@/types';
-import { WIVES, EXPENSE_CATEGORIES, ALL_WIVES_OPTIONS } from '@/types';
+import { WIVES, EXPENSE_CATEGORIES } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { getWifeOnDutyForDate } from '@/lib/duty';
 
 const expenseSchema = z.object({
@@ -66,10 +65,9 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
     name: "expenses",
   });
   const { toast } = useToast();
-  const itemInputRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const itemInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const selectedDate = form.watch('date');
-  const expensesWatcher = form.watch('expenses');
 
    const getWifeOnDuty = useCallback((date: Date): Wife | null => {
     try {
@@ -123,7 +121,6 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       await onSave(values.expenses, values.date);
-      const wifeOnDuty = getWifeOnDuty(new Date());
       form.reset({
         date: new Date(),
         expenses: [{ item: '', price: 0, wife: 'N/A', category: 'Other' }],
@@ -142,7 +139,6 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
   };
 
   const addExpenseRow = () => {
-    const wifeOnDuty = getWifeOnDuty(selectedDate);
     append({ 
       item: '', 
       price: 0, 
@@ -154,20 +150,23 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
     }, 0);
   };
   
-  const handleKeyDown = (e: React.KeyboardEvent, index: number, field: 'item' | 'price') => {
+  const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
     if (e.key === 'Enter') {
         e.preventDefault();
-        if (field === 'item') {
-            document.getElementById(`expenses.${index}.price`)?.focus();
-        } else if (field === 'price') {
-            if (index === fields.length - 1) {
-                addExpenseRow();
-            } else {
-                itemInputRefs.current[index + 1]?.focus();
-            }
-        }
+        document.getElementById(`expenses.${index}.price`)?.focus();
     }
   };
+  
+  const handlePriceKeyDown = (e: React.KeyboardEvent, index: number) => {
+     if (e.key === 'Enter') {
+        e.preventDefault();
+        if (index === fields.length - 1) {
+            addExpenseRow();
+        } else {
+            itemInputRefs.current[index + 1]?.focus();
+        }
+    }
+  }
 
   return (
     <Form {...form}>
@@ -218,22 +217,13 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
                       name={`expenses.${index}.item`}
                       render={({ field }) => (
                         <FormItem>
-                           <Controller
-                                name={`expenses.${index}.item`}
-                                control={form.control}
-                                render={({ field }) => (
-                                    <Combobox
-                                        options={uniqueItems.map(i => ({ value: i.name, label: i.name }))}
-                                        value={field.value}
-                                        onChange={(value) => {
-                                            field.onChange(value);
-                                            document.getElementById(`expenses.${index}.price`)?.focus();
-                                        }}
-                                        ref={el => itemInputRefs.current[index] = el}
-                                        onKeyDown={(e) => handleKeyDown(e, index, 'item')}
-                                    />
-                                )}
-                            />
+                           <DatalistInput
+                                {...field}
+                                options={uniqueItems}
+                                onKeyDown={(e) => handleKeyDown(e, index)}
+                                ref={el => itemInputRefs.current[index] = el}
+                                id={`expenses.${index}.item`}
+                           />
                           <FormMessage />
                         </FormItem>
                       )}
@@ -244,7 +234,7 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
                       render={({ field }) => (
                         <FormItem>
                           <FormControl>
-                            <Input {...field} type="number" placeholder="Price" id={`expenses.${index}.price`} onKeyDown={(e) => handleKeyDown(e, index, 'price')} />
+                            <Input {...field} type="number" placeholder="Price" id={`expenses.${index}.price`} onKeyDown={(e) => handlePriceKeyDown(e, index)} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -310,100 +300,28 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
   );
 }
 
-const Combobox = React.forwardRef<
-    HTMLButtonElement,
-    {
-        options: { value: string; label: string }[];
-        value: string;
-        onChange: (value: string) => void;
-        onKeyDown: React.KeyboardEventHandler<HTMLButtonElement>;
-    }
->(({ options, value, onChange, onKeyDown }, ref) => {
-    const [open, setOpen] = useState(false);
-    const [inputValue, setInputValue] = useState("");
-
-    const handleSelect = (currentValue: string) => {
-        onChange(currentValue);
-        setInputValue("");
-        setOpen(false);
-    };
-    
-    const handleCreate = () => {
-        if (inputValue) {
-            onChange(inputValue);
-            setInputValue('');
-            setOpen(false);
-        }
-    };
-
-    const filteredOptions = inputValue
-        ? options.filter((option) =>
-              option.label.toLowerCase().includes(inputValue.toLowerCase())
-          )
-        : options;
-
-    const showCreateOption =
-        inputValue &&
-        !options.some(
-            (option) => option.label.toLowerCase() === inputValue.toLowerCase()
-        );
-
+const DatalistInput = React.forwardRef<
+  HTMLInputElement,
+  {
+    options: UniqueItem[];
+    id: string;
+  } & React.ComponentPropsWithoutRef<"input">
+>(({ options, id, ...props }, ref) => {
+    const datalistId = `${id}-datalist`;
     return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={open}
-                    className="w-full justify-between"
-                    ref={ref}
-                    onKeyDown={onKeyDown}
-                >
-                    {value || "Select item..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-50 pointer-events-auto">
-                <Command shouldFilter={false}>
-                    <CommandInput
-                        placeholder="Search or create item..."
-                        value={inputValue}
-                        onValueChange={setInputValue}
-                    />
-                    <CommandList>
-                         <CommandEmpty>No item found.</CommandEmpty>
-                         <CommandGroup>
-                            {showCreateOption && (
-                                <CommandItem
-                                    value={inputValue}
-                                    onSelect={handleCreate}
-                                    className="cursor-pointer"
-                                >
-                                    Create "{inputValue}"
-                                </CommandItem>
-                            )}
-                            {filteredOptions.map((option) => (
-                                <CommandItem
-                                    key={option.value}
-                                    value={option.value}
-                                    onSelect={(currentValue) => {
-                                        handleSelect(currentValue);
-                                    }}
-                                >
-                                    <Check
-                                        className={cn(
-                                            "mr-2 h-4 w-4",
-                                            value === option.value ? "opacity-100" : "opacity-0"
-                                        )}
-                                    />
-                                    {option.label}
-                                </CommandItem>
-                            ))}
-                        </CommandGroup>
-                    </CommandList>
-                </Command>
-            </PopoverContent>
-        </Popover>
+        <div>
+            <Input
+                ref={ref}
+                {...props}
+                list={datalistId}
+                placeholder="Search or create item..."
+            />
+            <datalist id={datalistId}>
+                {options.map((item) => (
+                    <option key={item.id} value={item.name} />
+                ))}
+            </datalist>
+        </div>
     );
 });
-Combobox.displayName = "Combobox";
+DatalistInput.displayName = "DatalistInput";
