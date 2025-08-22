@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, getDocs, doc, runTransaction, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, runTransaction, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Expense, ExpenseData, UniqueItem, Duty, Wife } from '@/types';
 import Dashboard from '@/components/Dashboard';
@@ -38,23 +38,34 @@ export default function Home() {
   const fetchAppData = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch Balance and initialize if it doesn't exist
       const balanceRef = doc(db, 'balance', 'current');
+      const rosterRef = doc(db, 'roster', 'current');
+
+      // Check for balance and roster docs first, create if they don't exist
       const balanceSnap = await getDoc(balanceRef);
-      if (balanceSnap.exists()) {
-        setBalance(balanceSnap.data().amount ?? 0);
-      } else {
+      if (!balanceSnap.exists()) {
         await setDoc(balanceRef, { amount: 0 });
-        setBalance(0);
       }
 
-      // Fetch Expenses
-      const expensesSnapshot = await getDocs(collection(db, 'expenses'));
+      const rosterSnap = await getDoc(rosterRef);
+      if (!rosterSnap.exists()) {
+        await setDoc(rosterRef, { availableWives: WIVES });
+      }
+      
+      // Now fetch all data
+      const [balanceData, expensesSnapshot, itemsSnapshot, rosterData] = await Promise.all([
+        getDoc(balanceRef),
+        getDocs(collection(db, 'expenses')),
+        getDocs(collection(db, 'items')),
+        getDoc(rosterRef)
+      ]);
+      
+      setBalance(balanceData.data()?.amount ?? 0);
+      setRoster(rosterData.data()?.availableWives ?? WIVES);
+      
       const expensesData = expensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
       setExpenses(expensesData);
 
-      // Fetch Items
-      const itemsSnapshot = await getDocs(collection(db, 'items'));
       const itemsData = itemsSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name } as UniqueItem));
       const seen = new Set();
       const filteredItems = itemsData.filter(item => {
@@ -67,17 +78,6 @@ export default function Home() {
       });
       setUniqueItems(filteredItems);
 
-      // Fetch Roster
-      const rosterRef = doc(db, 'roster', 'current');
-      const rosterSnap = await getDoc(rosterRef);
-      if (rosterSnap.exists()) {
-          setRoster(rosterSnap.data().availableWives);
-      } else {
-          // If roster doesn't exist, create it with all wives available
-          await setDoc(rosterRef, { availableWives: WIVES });
-          setRoster(WIVES);
-      }
-
     } catch (error) {
       console.error("Error fetching data: ", error);
       toast({
@@ -89,6 +89,7 @@ export default function Home() {
       setLoading(false);
     }
   }, [toast]);
+
 
   useEffect(() => {
     fetchAppData();
@@ -126,7 +127,6 @@ export default function Home() {
 
     const rosterRef = doc(db, 'roster', 'current');
     try {
-      // Use setDoc to create if it doesn't exist, or update if it does.
       await setDoc(rosterRef, { availableWives: newRoster }, { merge: true });
       setRoster(newRoster); // Update local state
       toast({
@@ -155,7 +155,6 @@ export default function Home() {
             if (balanceDoc.exists()) {
                 currentBalance = balanceDoc.data().amount ?? 0;
             } else {
-                // If balance doc doesn't exist, transaction will create it with 0.
                 transaction.set(balanceRef, { amount: 0 });
             }
 
@@ -209,7 +208,6 @@ export default function Home() {
             if (balanceDoc.exists()) {
                 currentBalance = balanceDoc.data().amount ?? 0;
             } else {
-                 // This case is unlikely if app initializes correctly, but safe to handle.
                  transaction.set(balanceRef, { amount: 0 });
             }
 
@@ -248,7 +246,6 @@ export default function Home() {
             if (balanceDoc.exists()) {
                 currentBalance = balanceDoc.data().amount ?? 0;
             } else {
-                // This case is unlikely if app initializes correctly, but safe to handle.
                 transaction.set(balanceRef, { amount: 0 });
             }
             const newBalance = currentBalance + price;
@@ -288,7 +285,6 @@ export default function Home() {
         if(balanceDoc.exists()){
             currentBalance = balanceDoc.data().amount ?? 0;
         } else {
-             // If balance doc doesn't exist, transaction will create it with 0.
              transaction.set(balanceRef, { amount: 0 });
         }
         

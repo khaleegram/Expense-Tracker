@@ -1,25 +1,25 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Balance: Only allows access to the 'current' document.
+    
+    // Balance: Only one document called "current"
     match /balance/current {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
 
-    // Expenses: Logged-in users can create, read, update, and delete expenses.
+    // Expenses: Any document inside expenses/
     match /expenses/{expenseId} {
-      allow read, create, update, delete: if request.auth != null;
+      allow read, write: if true;
     }
 
-    // Items: Logged-in users can read and create new items.
+    // Items: Any document inside items/
     match /items/{itemId} {
-      allow read, create: if request.auth != null;
+      allow read, write: if true;
     }
 
-    // Roster: Logged-in users can read and update the 'current' roster.
+    // Roster: Only one document called "current"
     match /roster/current {
-       allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
   }
 }
