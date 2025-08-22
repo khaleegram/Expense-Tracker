@@ -1,9 +1,10 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, getDocs, doc, runTransaction, getDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, runTransaction, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Expense, ExpenseData, UniqueItem, Duty } from '@/types';
+import type { Expense, ExpenseData, UniqueItem, Duty, Wife } from '@/types';
 import Dashboard from '@/components/Dashboard';
 import ExpenseForm from '@/components/ExpenseForm';
 import ExpenseList from '@/components/ExpenseList';
@@ -11,13 +12,16 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, CookingPot, Utensils, Soup, PlusCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CookingPot, Utensils, Soup, PlusCircle, UserCheck, UserX } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { getWifeOnDutyForDate } from '@/lib/duty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WifeIcon } from '@/components/WifeIcon';
 import { useToast } from "@/hooks/use-toast";
 import { Input } from '@/components/ui/input';
+import { WIVES } from '@/types';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 export default function Home() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -28,6 +32,7 @@ export default function Home() {
   const [todaysDuty, setTodaysDuty] = useState<Duty[] | null>(null);
   const [dutyLoading, setDutyLoading] = useState(true);
   const [addFundsAmount, setAddFundsAmount] = useState<number | string>("");
+  const [roster, setRoster] = useState<Wife[]>([]);
   const { toast } = useToast();
 
   const fetchAppData = useCallback(async () => {
@@ -59,9 +64,19 @@ export default function Home() {
         const amt = (balanceSnap.data() as any).amount ?? 0;
         setBalance(amt);
       } else {
-        // Document doesn't exist, so create it.
         await setDoc(balanceRef, { amount: 0 });
         setBalance(0);
+      }
+
+      // Fetch Roster
+      const rosterRef = doc(db, 'roster', 'current');
+      const rosterSnap = await getDoc(rosterRef);
+      if (rosterSnap.exists()) {
+          setRoster(rosterSnap.data().availableWives);
+      } else {
+          // If roster doesn't exist, create it with all wives available
+          await setDoc(rosterRef, { availableWives: WIVES });
+          setRoster(WIVES);
       }
 
     } catch (error) {
@@ -81,12 +96,54 @@ export default function Home() {
   }, [fetchAppData]);
 
   useEffect(() => {
-    setDutyLoading(true);
-    const { duty } = getWifeOnDutyForDate(new Date());
-    setTodaysDuty(duty);
-    setDutyLoading(false);
-  }, []);
+    async function calculateDuty() {
+        if (roster.length > 0) {
+            setDutyLoading(true);
+            try {
+                const { duty } = await getWifeOnDutyForDate(new Date(), roster);
+                setTodaysDuty(duty);
+            } catch (error) {
+                console.error("Error calculating duty:", error);
+                setTodaysDuty(null);
+            } finally {
+                setDutyLoading(false);
+            }
+        } else {
+            setTodaysDuty(null);
+            setDutyLoading(false);
+        }
+    }
+    calculateDuty();
+  }, [roster]);
   
+  const handleToggleWifeAvailability = async (wife: Wife) => {
+    const isAvailable = roster.includes(wife);
+    const newRoster = isAvailable 
+      ? roster.filter(w => w !== wife)
+      : [...roster, wife];
+    
+    // Sort to maintain consistent order
+    newRoster.sort((a, b) => WIVES.indexOf(a) - WIVES.indexOf(b));
+
+    const rosterRef = doc(db, 'roster', 'current');
+    try {
+      await updateDoc(rosterRef, { availableWives: newRoster });
+      setRoster(newRoster); // Update local state
+      toast({
+        title: "Roster Updated",
+        description: `${wife} is now ${isAvailable ? 'unavailable' : 'available'}.`,
+      });
+    } catch (error) {
+      console.error("Error updating roster: ", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not update the duty roster.",
+      });
+    }
+  };
+
+
   const handleSaveExpenses = async (newExpenses: Omit<ExpenseData, 'date'>[], date: Date) => {
     const totalNewExpense = newExpenses.reduce((sum, exp) => sum + exp.price, 0);
     const balanceRef = doc(db, 'balance', 'current');
@@ -94,20 +151,21 @@ export default function Home() {
     try {
         await runTransaction(db, async (transaction) => {
             const balanceDoc = await transaction.get(balanceRef);
-            const currentBalance = balanceDoc.exists() ? ((balanceDoc.data() as any).amount ?? 0) : 0;
+            let currentBalance = 0;
+            if (balanceDoc.exists()) {
+                currentBalance = balanceDoc.data().amount ?? 0;
+            } else {
+                transaction.set(balanceRef, { amount: 0 });
+            }
+
             const newBalance = currentBalance - totalNewExpense;
 
             if (newBalance < 0) {
               throw new Error("Insufficient balance.");
             }
 
-            // If doc exists, update. Otherwise create with the newBalance.
-            if (balanceDoc.exists()) {
-              transaction.update(balanceRef, { amount: newBalance });
-            } else {
-              transaction.set(balanceRef, { amount: newBalance });
-            }
-
+            transaction.update(balanceRef, { amount: newBalance });
+           
             const dateStr = format(date, 'yyyy-MM-dd');
             newExpenses.forEach(expense => {
                 const expenseRef = doc(collection(db, 'expenses'));
@@ -146,19 +204,20 @@ export default function Home() {
     try {
         await runTransaction(db, async (transaction) => {
             const balanceDoc = await transaction.get(balanceRef);
-            const currentBalance = balanceDoc.exists() ? ((balanceDoc.data() as any).amount ?? 0) : 0;
+            let currentBalance = 0;
+            if (balanceDoc.exists()) {
+                currentBalance = balanceDoc.data().amount ?? 0;
+            } else {
+                 transaction.set(balanceRef, { amount: 0 });
+            }
+
             const newBalance = currentBalance - priceDifference;
             
             if (newBalance < 0) {
               throw new Error("Insufficient balance.");
             }
 
-            if (balanceDoc.exists()) {
-              transaction.update(balanceRef, { amount: newBalance });
-            } else {
-              transaction.set(balanceRef, { amount: newBalance });
-            }
-
+            transaction.update(balanceRef, { amount: newBalance });
             transaction.update(expenseRef, updatedExpense);
         });
         toast({
@@ -183,15 +242,15 @@ export default function Home() {
     try {
         await runTransaction(db, async (transaction) => {
             const balanceDoc = await transaction.get(balanceRef);
-            const currentBalance = balanceDoc.exists() ? ((balanceDoc.data() as any).amount ?? 0) : 0;
+            let currentBalance = 0;
+            if (balanceDoc.exists()) {
+                currentBalance = balanceDoc.data().amount ?? 0;
+            } else {
+                transaction.set(balanceRef, { amount: 0 });
+            }
             const newBalance = currentBalance + price;
 
-            if (balanceDoc.exists()) {
-              transaction.update(balanceRef, { amount: newBalance });
-            } else {
-              transaction.set(balanceRef, { amount: newBalance });
-            }
-
+            transaction.update(balanceRef, { amount: newBalance });
             transaction.delete(expenseRef);
         });
 
@@ -222,14 +281,15 @@ export default function Home() {
     try {
       await runTransaction(db, async (transaction) => {
         const balanceDoc = await transaction.get(balanceRef);
-        const currentBalance = balanceDoc.exists() ? ((balanceDoc.data() as any).amount ?? 0) : 0;
-        const newBalance = currentBalance + amount;
-
-        if (balanceDoc.exists()) {
-          transaction.update(balanceRef, { amount: newBalance });
+        let currentBalance = 0;
+        if(balanceDoc.exists()){
+            currentBalance = balanceDoc.data().amount ?? 0;
         } else {
-          transaction.set(balanceRef, { amount: newBalance });
+             transaction.set(balanceRef, { amount: 0 });
         }
+        
+        const newBalance = currentBalance + amount;
+        transaction.update(balanceRef, { amount: newBalance });
       });
 
       toast({
@@ -281,7 +341,7 @@ export default function Home() {
       
       <main className="p-4 md:px-8">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
-            <Card className="lg:col-span-2">
+            <Card className="lg:col-span-1">
                 <CardHeader>
                     <CardTitle>Today's Duty ({format(new Date(), "do MMMM")})</CardTitle>
                 </CardHeader>
@@ -314,8 +374,29 @@ export default function Home() {
                             ))}
                         </div>
                     ) : (
-                        <p>No duty information available for today.</p>
+                        <p>No one is available for duty.</p>
                     )}
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Duty Roster</CardTitle>
+                    <CardDescription>Manage who is available for duty.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {WIVES.map(wife => (
+                    <div key={wife} className="flex items-center justify-between">
+                      <Label htmlFor={`roster-${wife}`} className="flex items-center gap-2">
+                        <WifeIcon wife={wife} />
+                        {wife}
+                      </Label>
+                      <Switch
+                        id={`roster-${wife}`}
+                        checked={roster.includes(wife)}
+                        onCheckedChange={() => handleToggleWifeAvailability(wife)}
+                      />
+                    </div>
+                  ))}
                 </CardContent>
             </Card>
              <Card>
@@ -371,6 +452,7 @@ export default function Home() {
                   <ExpenseForm 
                     onSave={handleSaveExpenses} 
                     uniqueItems={uniqueItems} 
+                    availableWives={roster}
                   />
                 </CardContent>
               </Card>
@@ -383,6 +465,7 @@ export default function Home() {
                     onUpdate={handleUpdateExpense}
                     onDelete={handleDeleteExpense}
                     loading={loading}
+                    availableWives={roster}
                   />
                 </CardContent>
               </Card>
@@ -393,3 +476,4 @@ export default function Home() {
     </div>
   );
 }
+

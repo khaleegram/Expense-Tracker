@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import type { Expense, Wife, ExpenseCategory } from '@/types';
-import { WIVES, EXPENSE_CATEGORIES, ALL_WIVES_OPTIONS } from '@/types';
+import { EXPENSE_CATEGORIES } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -22,9 +22,10 @@ interface ExpenseListProps {
   onUpdate: (id: string, originalPrice: number, updatedExpense: Partial<Expense>) => Promise<void>;
   onDelete: (id: string, price: number) => Promise<void>;
   loading: boolean;
+  availableWives: Wife[];
 }
 
-export default function ExpenseList({ expenses, onUpdate, onDelete, loading }: ExpenseListProps) {
+export default function ExpenseList({ expenses, onUpdate, onDelete, loading, availableWives }: ExpenseListProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
@@ -62,6 +63,9 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading }: E
       setSelectedExpense(null);
     }
   };
+
+  const availableWifeOptions = [...availableWives, 'N/A'];
+
 
   return (
     <>
@@ -164,7 +168,7 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading }: E
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {ALL_WIVES_OPTIONS.map(wife => (
+                    {availableWifeOptions.map(wife => (
                       <SelectItem key={wife} value={wife}>{wife}</SelectItem>
                     ))}
                   </SelectContent>

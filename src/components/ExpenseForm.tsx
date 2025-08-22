@@ -15,7 +15,7 @@ import { CalendarIcon, PlusCircle, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import type { UniqueItem, ExpenseData, Wife } from '@/types';
-import { WIVES, EXPENSE_CATEGORIES } from '@/types';
+import { EXPENSE_CATEGORIES } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { getWifeOnDutyForDate } from '@/lib/duty';
 
@@ -50,14 +50,15 @@ const formSchema = z.object({
 interface ExpenseFormProps {
   onSave: (expenses: Omit<ExpenseData, 'date'>[], date: Date) => Promise<void>;
   uniqueItems: UniqueItem[];
+  availableWives: Wife[];
 }
 
-export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
+export default function ExpenseForm({ onSave, uniqueItems, availableWives }: ExpenseFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       date: new Date(),
-      expenses: [{ item: '', price: 0, wife: 'Mama', category: 'Other' }],
+      expenses: [{ item: '', price: 0, wife: 'N/A', category: 'Other' }],
     },
   });
   const { fields, append, remove } = useFieldArray({
@@ -69,34 +70,38 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
 
   const selectedDate = form.watch('date');
 
-   const getWifeOnDuty = useCallback((date: Date): Wife | null => {
+   const getWifeOnDuty = useCallback(async (date: Date): Promise<Wife | null> => {
     try {
-        const { primaryWife } = getWifeOnDutyForDate(date);
+        const { primaryWife } = await getWifeOnDutyForDate(date, availableWives);
         return primaryWife;
     } catch (error) {
         console.error("Failed to calculate wife on duty for date", date, error);
         return null;
     }
-  }, []);
+  }, [availableWives]);
 
   useEffect(() => {
-    const wifeOnDuty = getWifeOnDuty(selectedDate);
-    if(wifeOnDuty) {
-        form.getValues('expenses').forEach((field, index) => {
-            const currentCategory = field.category;
-            const currentWife = field.wife;
-            let newWife = currentWife;
+    const setPrimaryWife = async () => {
+        const wifeOnDuty = await getWifeOnDuty(selectedDate);
+        if(wifeOnDuty) {
+            form.getValues('expenses').forEach((field, index) => {
+                const currentCategory = field.category;
+                const currentWife = field.wife;
+                let newWife: Wife = currentWife;
 
-             if (currentCategory !== 'Other') {
-                if (currentWife !== wifeOnDuty) newWife = wifeOnDuty;
-            } else {
-                if (currentWife !== 'N/A') newWife = 'N/A';
-            }
-            if (newWife !== currentWife) {
-                form.setValue(`expenses.${index}.wife`, newWife, { shouldValidate: true });
-            }
-        });
-    }
+                if (currentCategory !== 'Other') {
+                    if (currentWife !== wifeOnDuty) newWife = wifeOnDuty;
+                } else {
+                    if (currentWife !== 'N/A') newWife = 'N/A';
+                }
+                
+                if (newWife !== currentWife) {
+                    form.setValue(`expenses.${index}.wife`, newWife, { shouldValidate: true });
+                }
+            });
+        }
+    };
+    setPrimaryWife();
   }, [selectedDate, getWifeOnDuty, form]);
   
   useEffect(() => {
@@ -109,13 +114,15 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
         if (newCategory === 'Other' && currentWife !== 'N/A') {
           form.setValue(`expenses.${index}.wife`, 'N/A', { shouldValidate: true });
         } else if (newCategory !== 'Other' && currentWife === 'N/A') {
-          const wifeOnDuty = getWifeOnDuty(form.getValues('date'));
-          form.setValue(`expenses.${index}.wife`, wifeOnDuty || 'Mama', { shouldValidate: true });
+          getWifeOnDuty(form.getValues('date')).then(wifeOnDuty => {
+            const firstAvailableWife = availableWives.length > 0 ? availableWives[0] : 'N/A';
+            form.setValue(`expenses.${index}.wife`, wifeOnDuty || firstAvailableWife, { shouldValidate: true });
+          });
         }
       }
     });
     return () => subscription.unsubscribe();
-  }, [form, getWifeOnDuty]);
+  }, [form, getWifeOnDuty, availableWives]);
 
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -125,15 +132,11 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
         date: new Date(),
         expenses: [{ item: '', price: 0, wife: 'N/A', category: 'Other' }],
       });
-      toast({
-        title: "Success",
-        description: "Expenses saved successfully.",
-      });
     } catch (error) {
-      toast({
+       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to save expenses.",
+        description: "Failed to save expenses. Check balance and try again.",
       });
     }
   };
@@ -167,6 +170,8 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
         }
     }
   }
+  
+  const availableWifeOptions = [...availableWives, 'N/A'];
 
   return (
     <Form {...form}>
@@ -273,8 +278,8 @@ export default function ExpenseForm({ onSave, uniqueItems }: ExpenseFormProps) {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent className="z-50 pointer-events-auto">
-                              {WIVES.map(wife => (
-                                <SelectItem key={wife} value={wife}>{wife}</SelectItem>
+                              {availableWifeOptions.map(wife => (
+                                <SelectItem key={wife} value={wife} disabled={wife === 'N/A' && !isOtherCategory}>{wife}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
