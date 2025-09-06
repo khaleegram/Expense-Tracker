@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, getDocs, doc, runTransaction, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Expense, ExpenseData, UniqueItem, Duty, Wife, SuggestionInput } from '@/types';
+import type { Expense, ExpenseData, UniqueItem, Duty, Wife } from '@/types';
 import Dashboard from '@/components/Dashboard';
 import ExpenseForm from '@/components/ExpenseForm';
 import ExpenseList from '@/components/ExpenseList';
@@ -44,7 +44,6 @@ export default function Home() {
       const balanceRef = doc(db, 'balance', 'current');
       const rosterRef = doc(db, 'roster', 'current');
 
-      // Ensure default documents exist if they don't
       const balanceSnap = await getDoc(balanceRef);
       if (!balanceSnap.exists()) {
         await setDoc(balanceRef, { amount: 0 });
@@ -52,7 +51,6 @@ export default function Home() {
 
       const rosterSnap = await getDoc(rosterRef);
       if (!rosterSnap.exists()) {
-        // Default roster includes all wives initially
         await setDoc(rosterRef, { availableWives: WIVES });
       }
       
@@ -71,7 +69,6 @@ export default function Home() {
 
       const itemsData = itemsSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name } as UniqueItem));
       const seen = new Set();
-      // Filter out duplicate item names, case-insensitively
       const filteredItems = itemsData.filter(item => {
         const lowerCaseName = (item.name || '').toLowerCase();
         const duplicate = seen.has(lowerCaseName);
@@ -125,10 +122,8 @@ export default function Home() {
     const isCurrentlyInRoster = roster.includes(wife);
   
     if (isCurrentlyInRoster) {
-      // Remove wife from roster
       newRoster = roster.filter(w => w !== wife);
     } else {
-      // Add wife to the end of the roster
       newRoster = [...roster, wife];
     }
   
@@ -158,7 +153,6 @@ export default function Home() {
     if (newIndex < 0 || newIndex >= roster.length) return;
     
     const newRoster = [...roster];
-    // Simple swap
     const temp = newRoster[currentIndex];
     newRoster[currentIndex] = newRoster[newIndex];
     newRoster[newIndex] = temp;
@@ -205,7 +199,6 @@ export default function Home() {
                 transaction.set(expenseRef, { ...expense, date: dateStr });
             });
 
-            // Add new unique items to the 'items' collection
             const currentItems = new Set(uniqueItems.map(item => (item.name || '').toLowerCase()));
             for (const expense of newExpenses) {
                 if (expense.item && !currentItems.has(expense.item.toLowerCase())) {
@@ -384,7 +377,7 @@ export default function Home() {
       </header>
       
       <main className="p-4 md:px-8">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 mb-6">
             <Card>
                 <CardHeader>
                     <CardTitle>Today's Duty ({format(new Date(), "do MMMM")})</CardTitle>
@@ -560,5 +553,3 @@ export default function Home() {
     </div>
   );
 }
-
-    

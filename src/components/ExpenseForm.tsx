@@ -304,7 +304,7 @@ export default function ExpenseForm({ onSave, uniqueItems, availableWives, onGet
                         </FormItem>
                       )}
                     />
-                     <Button type="button" variant="ghost" size="icon" onClick={() => fields.length > 1 && remove(index)} className={cn(fields.length <= 1 && "opacity-50 cursor-not-allowed")}>
+                     <Button type="button" variant="ghost" size="icon" onClick={() => fields.length > 1 && remove(index)} className={cn("mt-2 md:mt-0", fields.length <= 1 && "opacity-50 cursor-not-allowed")}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                      </Button>
                 </div>
