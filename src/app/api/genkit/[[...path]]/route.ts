@@ -1,6 +1,7 @@
+
 import { createGenkitNextHandler } from '@genkit-ai/next';
-import {genkit} from 'genkit'
+import { ai } from '@/ai/genkit';
 
 export const POST = createGenkitNextHandler({
-    getGenkit: () => genkit,
+  getGenkit: () => ai,
 });
