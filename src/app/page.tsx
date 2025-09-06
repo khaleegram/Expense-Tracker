@@ -44,6 +44,7 @@ export default function Home() {
       const balanceRef = doc(db, 'balance', 'current');
       const rosterRef = doc(db, 'roster', 'current');
 
+      // Ensure default documents exist if they don't
       const balanceSnap = await getDoc(balanceRef);
       if (!balanceSnap.exists()) {
         await setDoc(balanceRef, { amount: 0 });
@@ -51,6 +52,7 @@ export default function Home() {
 
       const rosterSnap = await getDoc(rosterRef);
       if (!rosterSnap.exists()) {
+        // Default roster includes all wives initially
         await setDoc(rosterRef, { availableWives: WIVES });
       }
       
@@ -69,6 +71,7 @@ export default function Home() {
 
       const itemsData = itemsSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name } as UniqueItem));
       const seen = new Set();
+      // Filter out duplicate item names, case-insensitively
       const filteredItems = itemsData.filter(item => {
         const lowerCaseName = (item.name || '').toLowerCase();
         const duplicate = seen.has(lowerCaseName);
@@ -119,12 +122,14 @@ export default function Home() {
   
   const handleToggleWifeAvailability = async (wife: Wife) => {
     let newRoster: Wife[];
-    const isCurrentlyAvailable = roster.includes(wife);
+    const isCurrentlyInRoster = roster.includes(wife);
   
-    if (isCurrentlyAvailable) {
+    if (isCurrentlyInRoster) {
+      // Remove wife from roster
       newRoster = roster.filter(w => w !== wife);
     } else {
-       newRoster = [...roster, wife];
+      // Add wife to the end of the roster
+      newRoster = [...roster, wife];
     }
   
     const rosterRef = doc(db, 'roster', 'current');
@@ -133,7 +138,7 @@ export default function Home() {
       setRoster(newRoster);
       toast({
         title: "Roster Updated",
-        description: `${wife} is now ${isCurrentlyAvailable ? 'unavailable' : 'available'}.`,
+        description: `${wife} is now ${isCurrentlyInRoster ? 'unavailable' : 'available'}.`,
       });
     } catch (error) {
       console.error("Error updating roster: ", error);
@@ -153,6 +158,7 @@ export default function Home() {
     if (newIndex < 0 || newIndex >= roster.length) return;
     
     const newRoster = [...roster];
+    // Simple swap
     const temp = newRoster[currentIndex];
     newRoster[currentIndex] = newRoster[newIndex];
     newRoster[newIndex] = temp;
@@ -183,12 +189,7 @@ export default function Home() {
     try {
         await runTransaction(db, async (transaction) => {
             const balanceDoc = await transaction.get(balanceRef);
-            let currentBalance = 0;
-            if (balanceDoc.exists()) {
-                currentBalance = balanceDoc.data().amount ?? 0;
-            } else {
-                transaction.set(balanceRef, { amount: 0 });
-            }
+            const currentBalance = balanceDoc.data()?.amount ?? 0;
 
             const newBalance = currentBalance - totalNewExpense;
 
@@ -204,9 +205,10 @@ export default function Home() {
                 transaction.set(expenseRef, { ...expense, date: dateStr });
             });
 
+            // Add new unique items to the 'items' collection
             const currentItems = new Set(uniqueItems.map(item => (item.name || '').toLowerCase()));
             for (const expense of newExpenses) {
-                if (!currentItems.has(expense.item.toLowerCase())) {
+                if (expense.item && !currentItems.has(expense.item.toLowerCase())) {
                     const itemRef = doc(collection(db, "items"));
                     transaction.set(itemRef, { name: expense.item });
                 }
@@ -236,13 +238,7 @@ export default function Home() {
     try {
         await runTransaction(db, async (transaction) => {
             const balanceDoc = await transaction.get(balanceRef);
-            let currentBalance = 0;
-            if (balanceDoc.exists()) {
-                currentBalance = balanceDoc.data().amount ?? 0;
-            } else {
-                 transaction.set(balanceRef, { amount: 0 });
-            }
-
+            const currentBalance = balanceDoc.data()?.amount ?? 0;
             const newBalance = currentBalance - priceDifference;
             
             if (newBalance < 0) {
@@ -274,12 +270,7 @@ export default function Home() {
     try {
         await runTransaction(db, async (transaction) => {
             const balanceDoc = await transaction.get(balanceRef);
-            let currentBalance = 0;
-            if (balanceDoc.exists()) {
-                currentBalance = balanceDoc.data().amount ?? 0;
-            } else {
-                transaction.set(balanceRef, { amount: 0 });
-            }
+            const currentBalance = balanceDoc.data()?.amount ?? 0;
             const newBalance = currentBalance + price;
 
             transaction.update(balanceRef, { amount: newBalance });
@@ -313,13 +304,7 @@ export default function Home() {
     try {
       await runTransaction(db, async (transaction) => {
         const balanceDoc = await transaction.get(balanceRef);
-        let currentBalance = 0;
-        if(balanceDoc.exists()){
-            currentBalance = balanceDoc.data().amount ?? 0;
-        } else {
-             transaction.set(balanceRef, { amount: 0 });
-        }
-        
+        const currentBalance = balanceDoc.data()?.amount ?? 0;
         const newBalance = currentBalance + amount;
         transaction.update(balanceRef, { amount: newBalance });
       });
@@ -343,10 +328,12 @@ export default function Home() {
   const handleGetSuggestion = async (itemName: string) => {
     if (!itemName) return null;
     try {
+      const allExpenseData = expenses.map(e => ({...e, wife: e.wife as string, category: e.category as string}));
       const suggestion = await suggestItemDetails({
         itemName,
-        allExpenses: expenses,
+        allExpenses: allExpenseData,
       });
+
       if (suggestion.price || suggestion.category) {
         toast({
          title: "Suggestion Applied",
@@ -398,7 +385,7 @@ export default function Home() {
       
       <main className="p-4 md:px-8">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
-            <Card className="lg:col-span-1">
+            <Card>
                 <CardHeader>
                     <CardTitle>Today's Duty ({format(new Date(), "do MMMM")})</CardTitle>
                 </CardHeader>
@@ -447,7 +434,7 @@ export default function Home() {
                             <div className="flex items-center gap-3">
                                 <span className="text-sm font-bold w-4">{index + 1}.</span>
                                 <WifeIcon wife={wife} />
-                                {wife}
+                                <span>{wife}</span>
                             </div>
                             <div className="flex items-center gap-1">
                                 <Button
@@ -456,6 +443,7 @@ export default function Home() {
                                     className="h-7 w-7"
                                     onClick={() => handleReorderWife(wife, 'up')}
                                     disabled={index === 0}
+                                    aria-label={`Move ${wife} up`}
                                 >
                                     <ArrowUp className="h-4 w-4" />
                                 </Button>
@@ -465,6 +453,7 @@ export default function Home() {
                                     className="h-7 w-7"
                                     onClick={() => handleReorderWife(wife, 'down')}
                                     disabled={index === roster.length - 1}
+                                    aria-label={`Move ${wife} down`}
                                 >
                                     <ArrowDown className="h-4 w-4" />
                                 </Button>
@@ -476,7 +465,7 @@ export default function Home() {
                     <Separator className="my-4"/>
                      <p className="text-sm font-medium text-muted-foreground">Toggle Availability</p>
                     {WIVES.map(wife => {
-                        const isAvailable = roster.includes(wife);
+                        const isInRoster = roster.includes(wife);
                         return (
                             <div key={wife} className="flex items-center justify-between p-2 rounded-md">
                                 <Label htmlFor={`roster-toggle-${wife}`} className="flex items-center gap-3 cursor-pointer">
@@ -485,7 +474,7 @@ export default function Home() {
                                 </Label>
                                 <Switch
                                     id={`roster-toggle-${wife}`}
-                                    checked={isAvailable}
+                                    checked={isInRoster}
                                     onCheckedChange={() => handleToggleWifeAvailability(wife)}
                                 />
                             </div>
@@ -571,3 +560,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

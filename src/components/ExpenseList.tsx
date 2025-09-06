@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import type { Expense, Wife, ExpenseCategory } from '@/types';
-import { EXPENSE_CATEGORIES } from '@/types';
+import { EXPENSE_CATEGORIES, ALL_WIVES_OPTIONS } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -64,8 +64,7 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading, ava
     }
   };
 
-  const availableWifeOptions = [...availableWives, 'N/A'];
-
+  const editWifeOptions = [...availableWives, 'N/A'];
 
   return (
     <>
@@ -78,7 +77,7 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading, ava
               <TableHead>Category</TableHead>
               <TableHead>Wife</TableHead>
               <TableHead className="text-right">Price</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="w-[50px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -88,9 +87,9 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading, ava
                   <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-8 ml-auto" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-28" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : expenses.length > 0 ? (
@@ -99,7 +98,12 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading, ava
                   <TableCell>{format(new Date(expense.date), 'dd MMM yyyy')}</TableCell>
                   <TableCell className="font-medium">{expense.item}</TableCell>
                   <TableCell>{expense.category}</TableCell>
-                  <TableCell>{expense.wife === 'N/A' ? 'N/A' : <WifeIcon wife={expense.wife} />}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <WifeIcon wife={expense.wife} />
+                      <span>{expense.wife}</span>
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right">₦{expense.price.toLocaleString()}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -168,7 +172,7 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading, ava
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableWifeOptions.map(wife => (
+                    {editWifeOptions.map(wife => (
                       <SelectItem key={wife} value={wife}>{wife}</SelectItem>
                     ))}
                   </SelectContent>
@@ -203,3 +207,5 @@ export default function ExpenseList({ expenses, onUpdate, onDelete, loading, ava
     </>
   );
 }
+
+    

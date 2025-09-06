@@ -7,14 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Pie, PieChart, Cell, Tooltip } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { WifeIcon } from './WifeIcon';
 import { EXPENSE_CATEGORIES, WIVES } from '@/types';
-import { getDaysInMonth } from 'date-fns';
-
-interface DashboardProps {
-  expenses: Expense[];
-  loading: boolean;
-}
 
 const StatCard = ({ title, value, loading, icon }: { title: string, value: string | React.ReactNode, loading: boolean, icon?: React.ReactNode }) => (
   <Card>
@@ -80,25 +73,25 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
       };
     }
 
-    const totalSpend = expenses.reduce((acc, exp) => acc + Number(exp.price), 0);
+    const totalSpend = expenses.reduce((acc, exp) => acc + Number(exp.price || 0), 0);
 
     const spendPerWife = WIVES.map(wife => {
       const total = expenses
         .filter(exp => exp.wife === wife)
-        .reduce((acc, exp) => acc + Number(exp.price), 0);
+        .reduce((acc, exp) => acc + Number(exp.price || 0), 0);
       return { name: wife, total, fill: chartConfig[wife]?.color };
     });
     
     const spendPerCategory = EXPENSE_CATEGORIES.map(category => {
         const total = expenses
             .filter(exp => exp.category === category)
-            .reduce((acc, exp) => acc + Number(exp.price), 0);
+            .reduce((acc, exp) => acc + Number(exp.price || 0), 0);
         return { name: category, total, fill: chartConfig[category]?.color };
     }).filter(c => c.total > 0);
 
     const mostExpensiveItem = expenses.reduce(
       (max, exp) => (Number(exp.price) > max.price ? { item: exp.item, price: Number(exp.price) } : max),
-      { item: '', price: 0 }
+      { item: '-', price: 0 }
     );
 
     const itemCounts = expenses.reduce((acc, exp) => {
@@ -108,7 +101,7 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
 
     const mostFrequentItem = Object.entries(itemCounts).reduce(
       (max, [item, count]) => (count > max.count ? { item, count } : max),
-      { item: '', count: 0 }
+      { item: '-', count: 0 }
     );
     
     const dailyItems = expenses.reduce((acc, exp) => {
@@ -118,10 +111,11 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
     }, {} as Record<string, Set<string>>);
 
     const uniqueExpenseDays = new Set(expenses.map(e => e.date)).size;
+    // An item is "everyday" if it was bought on at least 70% of days with any expense
     const everydayThreshold = uniqueExpenseDays * 0.7;
 
     const everydayItems = Object.entries(dailyItems)
-        .filter(([, dates]) => dates.size >= everydayThreshold)
+        .filter(([, dates]) => dates.size >= everydayThreshold && dates.size > 1) // require at least 2 purchases
         .map(([item]) => item);
 
     return { totalSpend, spendPerWife, spendPerCategory, mostExpensiveItem, mostFrequentItem, everydayItems };
@@ -137,13 +131,15 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
       <StatCard
         title="Most Expensive Item"
         value={
-          <span className="truncate">{stats.mostExpensiveItem.item} (₦{stats.mostExpensiveItem.price.toLocaleString()})</span>
+          stats.mostExpensiveItem.price > 0 ? (
+            <span className="truncate">{stats.mostExpensiveItem.item} (₦{stats.mostExpensiveItem.price.toLocaleString()})</span>
+          ) : '-'
         }
         loading={loading}
       />
       <StatCard
         title="Most Frequent Item"
-        value={`${stats.mostFrequentItem.item} (${stats.mostFrequentItem.count} times)`}
+        value={stats.mostFrequentItem.count > 0 ? `${stats.mostFrequentItem.item} (${stats.mostFrequentItem.count} times)` : '-'}
         loading={loading}
       />
        <StatCard
@@ -157,21 +153,19 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
         </CardHeader>
         <CardContent className="pl-2">
             {loading ? (
-                <div className="w-full h-[350px] flex items-center justify-center">
-                    <Skeleton className="w-full h-full" />
-                </div>
+                <Skeleton className="w-full h-[350px]" />
             ) : (
-                <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+                <ChartContainer config={chartConfig} className="h-[350px] w-full">
                     <BarChart accessibilityLayer data={stats.spendPerWife}>
                     <XAxis
                         dataKey="name"
-                        stroke="#888888"
+                        stroke="hsl(var(--muted-foreground))"
                         fontSize={12}
                         tickLine={false}
                         axisLine={false}
                     />
                     <YAxis
-                        stroke="#888888"
+                        stroke="hsl(var(--muted-foreground))"
                         fontSize={12}
                         tickLine={false}
                         axisLine={false}
@@ -195,13 +189,11 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
         <CardHeader>
           <CardTitle>Spend by Category</CardTitle>
         </CardHeader>
-        <CardContent className="pl-2">
+        <CardContent className="pl-2 flex justify-center">
             {loading ? (
-                <div className="w-full h-[350px] flex items-center justify-center">
-                    <Skeleton className="w-full h-full" />
-                </div>
+                <Skeleton className="w-full h-[350px]" />
             ) : (
-                <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+                <ChartContainer config={chartConfig} className="h-[350px] w-full">
                     <PieChart accessibilityLayer>
                         <ChartTooltip 
                             cursor={{ fill: 'hsl(var(--accent) / 0.1)' }}
@@ -228,3 +220,5 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
     </div>
   );
 }
+
+    
