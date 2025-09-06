@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { WIVES } from '@/types';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function Home() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -337,6 +338,7 @@ export default function Home() {
           <Logo />
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">Expense Eye</h1>
         </div>
+        <ThemeToggle />
       </header>
       
       <main className="p-4 md:px-8">
