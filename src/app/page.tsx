@@ -388,6 +388,12 @@ export default function Home() {
     'Dinner': <Soup className="h-5 w-5 text-indigo-600" />,
   }
 
+  const allWivesWithStatus = WIVES.map(wife => ({
+    name: wife,
+    isAvailable: roster.includes(wife)
+  }));
+
+
   return (
     <div className="min-h-screen bg-background">
       <header className="py-6 px-4 md:px-8 flex items-center justify-between">
@@ -444,46 +450,46 @@ export default function Home() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {WIVES.map(wife => {
-                  const isAvailable = roster.includes(wife);
-                  const wifeInRoster = isAvailable ? wife : null;
-                  const wifeIndex = wifeInRoster ? roster.indexOf(wifeInRoster) : -1;
-                  return (
-                    <div key={wife} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <Switch
-                          id={`roster-${wife}`}
-                          checked={isAvailable}
-                          onCheckedChange={() => handleToggleWifeAvailability(wife)}
-                        />
-                        <Label htmlFor={`roster-${wife}`} className="flex items-center gap-2 cursor-pointer">
-                          <WifeIcon wife={wife} />
-                          {wife}
-                        </Label>
-                      </div>
-                      {isAvailable && (
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => handleReorderWife(wife, 'up')}
-                            disabled={wifeIndex === 0}
-                          >
-                            <ArrowUp className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => handleReorderWife(wife, 'down')}
-                            disabled={wifeIndex === roster.length - 1}
-                          >
-                            <ArrowDown className="h-4 w-4" />
-                          </Button>
+                    const isAvailable = roster.includes(wife);
+                    const wifeInRoster = isAvailable ? wife : null;
+                    const wifeIndex = wifeInRoster ? roster.indexOf(wifeInRoster) : -1;
+                    return (
+                      <div key={wife} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
+                        <div className="flex items-center gap-3">
+                          <Switch
+                            id={`roster-${wife}`}
+                            checked={isAvailable}
+                            onCheckedChange={() => handleToggleWifeAvailability(wife)}
+                          />
+                          <Label htmlFor={`roster-${wife}`} className="flex items-center gap-2 cursor-pointer">
+                            <WifeIcon wife={wife} />
+                            {wife}
+                          </Label>
                         </div>
-                      )}
-                    </div>
-                  );
+                         {isAvailable && (
+                           <div className="flex items-center gap-1">
+                             <Button
+                               variant="ghost"
+                               size="icon"
+                               className="h-7 w-7"
+                               onClick={() => handleReorderWife(wife, 'up')}
+                               disabled={wifeIndex === 0}
+                             >
+                               <ArrowUp className="h-4 w-4" />
+                             </Button>
+                             <Button
+                               variant="ghost"
+                               size="icon"
+                               className="h-7 w-7"
+                               onClick={() => handleReorderWife(wife, 'down')}
+                               disabled={wifeIndex === roster.length - 1}
+                             >
+                               <ArrowDown className="h-4 w-4" />
+                             </Button>
+                           </div>
+                         )}
+                      </div>
+                    );
                 })}
               </CardContent>
             </Card>
