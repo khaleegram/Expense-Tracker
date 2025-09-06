@@ -1,24 +1,32 @@
 {
-    "name": "Expense Eye",
-    "short_name": "ExpenseEye",
-    "description": "Track household expenses with ease.",
-    "start_url": "/",
-    "display": "standalone",
-    "background_color": "#fde047",
-    "theme_color": "#fde047",
-    "icons": [
-        {
-            "src": "/icon.svg",
-            "sizes": "any",
-            "type": "image/svg+xml"
-        }
-    ],
-    "screenshots": [
-        {
-            "src": "/screenshot.png",
-            "type": "image/png",
-            "sizes": "1280x720",
-            "form_factor": "wide"
-        }
-    ]
+  "name": "Expense Eye",
+  "short_name": "ExpenseEye",
+  "description": "Track household expenses with ease.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Expense Eye on Desktop"
+    },
+    {
+      "src": "/screenshotm.png",
+      "sizes": "540x1170",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Expense Eye on Mobile"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fde047",
+  "theme_color": "#fde047"
 }
