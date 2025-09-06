@@ -1,68 +1,55 @@
 
 'use server';
 /**
- * @fileOverview An AI flow to suggest details for a new expense item.
+ * @fileOverview An AI flow to suggest details for an expense item.
  *
- * - suggestItemDetails: A function that suggests a category and price for a new item.
+ * - suggestItemDetails - A function that suggests a category and price for a given item.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'zod';
-import { 
-  SuggestItemDetailsInputSchema, 
-  SuggestItemDetailsOutputSchema,
-  SuggestItemDetailsInput,
-  SuggestItemDetailsOutput
-} from '@/types';
+import {ai} from '@/ai/genkit';
+import {z} from 'genkit';
+import type { SuggestionInput, SuggestionOutput } from '@/types';
+import { SuggestionInputSchema, SuggestionOutputSchema } from '@/types';
 
-
-// Define the main exported function that clients will call.
-export async function suggestItemDetails(input: SuggestItemDetailsInput): Promise<SuggestItemDetailsOutput> {
+export async function suggestItemDetails(input: SuggestionInput): Promise<SuggestionOutput> {
+  if (input.allExpenses.length === 0) {
+    console.log("No existing expenses, skipping AI suggestion.");
+    return { category: null, price: null };
+  }
   return suggestItemDetailsFlow(input);
 }
 
-// Define the AI prompt for the suggestion task.
 const suggestDetailsPrompt = ai.definePrompt({
   name: 'suggestDetailsPrompt',
-  input: { schema: SuggestItemDetailsInputSchema },
-  output: { schema: SuggestItemDetailsOutputSchema },
-  prompt: `
-    You are an intelligent expense-tracking assistant. A user is adding a new expense item named '{{itemName}}'.
-    Your task is to suggest a suitable category and price for this item based on past expenses.
+  input: { schema: SuggestionInputSchema },
+  output: { schema: SuggestionOutputSchema },
+  prompt: `You are an assistant helping a user manage their household expenses.
+The user is adding a new expense and you need to suggest a category and a price based on their past spending habits.
 
-    Analyze the list of all past expenses provided below. Find expenses for items with similar names to '{{itemName}}'.
+Here is the name of the new item:
+'{{itemName}}'
 
-    Based on these similar items, determine the most common category they belong to.
-    Then, calculate a reasonable average price for these items.
+Here is the list of all their past expenses in JSON format:
+{{{json allExpenses}}}
 
-    If you cannot find any similar items, make a logical guess. For example, 'Bread' is likely for 'Breakfast' and a common grocery item price.
-    
-    Here is the list of all past expenses:
-    {{#each allExpenses}}
-    - Item: {{item}}, Price: {{price}}, Category: {{category}}, Date: {{date}}
-    {{/each}}
+Analyze the list of past expenses. Find other times the user purchased '{{itemName}}' or similar items.
+Based on the history, suggest a likely 'category' for this item. The available categories are "Breakfast", "Lunch", "Dinner", and "Other".
+Also, suggest a likely 'price' for this item based on the average or most recent price paid for it.
 
-    Provide your suggestion in the specified JSON format.
-  `,
+If you cannot find any relevant history for the item, you can return null for either or both fields.
+Return your suggestions in a valid JSON object format.
+`,
 });
 
-// Define the Genkit flow that orchestrates the AI call.
 const suggestItemDetailsFlow = ai.defineFlow(
   {
     name: 'suggestItemDetailsFlow',
-    inputSchema: SuggestItemDetailsInputSchema,
-    outputSchema: SuggestItemDetailsOutputSchema,
+    inputSchema: SuggestionInputSchema,
+    outputSchema: SuggestionOutputSchema,
   },
   async (input) => {
-    // If there are no past expenses, we can't make a meaningful suggestion.
-    // To avoid unnecessary API calls and hitting rate limits, we exit early.
-    if (!input.allExpenses || input.allExpenses.length === 0) {
-      // Return a default or empty response that the client can handle.
-      // We are returning a plausible but clearly default response.
-      return {
-        suggestedCategory: 'Other',
-        suggestedPrice: 0,
-      };
+    if (input.allExpenses.length === 0) {
+      return { category: null, price: null };
     }
     
     const { output } = await suggestDetailsPrompt(input);

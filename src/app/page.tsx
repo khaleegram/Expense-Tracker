@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, getDocs, doc, runTransaction, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Expense, ExpenseData, UniqueItem, Duty, Wife } from '@/types';
+import type { Expense, ExpenseData, UniqueItem, Duty, Wife, SuggestionInput } from '@/types';
 import Dashboard from '@/components/Dashboard';
 import ExpenseForm from '@/components/ExpenseForm';
 import ExpenseList from '@/components/ExpenseList';
@@ -12,7 +12,7 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, CookingPot, Utensils, Soup, PlusCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CookingPot, Utensils, Soup, PlusCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { getWifeOnDutyForDate } from '@/lib/duty';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,6 +23,7 @@ import { WIVES } from '@/types';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { suggestItemDetails } from '@/ai/flows/suggest-item-details';
 
 export default function Home() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -42,7 +43,6 @@ export default function Home() {
       const balanceRef = doc(db, 'balance', 'current');
       const rosterRef = doc(db, 'roster', 'current');
 
-      // Check for balance and roster docs first, create if they don't exist
       const balanceSnap = await getDoc(balanceRef);
       if (!balanceSnap.exists()) {
         await setDoc(balanceRef, { amount: 0 });
@@ -53,7 +53,6 @@ export default function Home() {
         await setDoc(rosterRef, { availableWives: WIVES });
       }
       
-      // Now fetch all data
       const [balanceData, expensesSnapshot, itemsSnapshot, rosterData] = await Promise.all([
         getDoc(balanceRef),
         getDocs(collection(db, 'expenses')),
@@ -123,13 +122,12 @@ export default function Home() {
       ? roster.filter(w => w !== wife)
       : [...roster, wife];
     
-    // Sort to maintain consistent order based on the original WIVES array
     newRoster.sort((a, b) => WIVES.indexOf(a) - WIVES.indexOf(b));
 
     const rosterRef = doc(db, 'roster', 'current');
     try {
       await setDoc(rosterRef, { availableWives: newRoster }, { merge: true });
-      setRoster(newRoster); // Update local state
+      setRoster(newRoster);
       toast({
         title: "Roster Updated",
         description: `${wife} is now ${isAvailable ? 'unavailable' : 'available'}.`,
@@ -140,6 +138,36 @@ export default function Home() {
         variant: "destructive",
         title: "Error",
         description: "Could not update the duty roster.",
+      });
+    }
+  };
+
+  const handleReorderWife = async (wife: Wife, direction: 'up' | 'down') => {
+    const currentIndex = roster.indexOf(wife);
+    if (currentIndex === -1) return;
+
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= roster.length) return;
+    
+    const newRoster = [...roster];
+    const temp = newRoster[currentIndex];
+    newRoster[currentIndex] = newRoster[newIndex];
+    newRoster[newIndex] = temp;
+
+    const rosterRef = doc(db, 'roster', 'current');
+    try {
+      await setDoc(rosterRef, { availableWives: newRoster }, { merge: true });
+      setRoster(newRoster);
+      toast({
+        title: "Roster Reordered",
+        description: "The duty roster has been updated.",
+      });
+    } catch (error) {
+      console.error("Error reordering roster: ", error);
+       toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not reorder the duty roster.",
       });
     }
   };
@@ -186,7 +214,7 @@ export default function Home() {
             title: "Expenses Saved",
             description: `₦${totalNewExpense.toLocaleString()} deducted from balance.`,
         });
-        await fetchAppData(); // Refresh data
+        await fetchAppData();
     } catch (error: any) {
         console.error("Transaction failed: ", error);
         toast({
@@ -309,6 +337,30 @@ export default function Home() {
     }
   };
 
+  const handleGetSuggestion = async (itemName: string) => {
+    if (!itemName) return null;
+    try {
+      const suggestion = await suggestItemDetails({
+        itemName,
+        allExpenses: expenses,
+      });
+      if (suggestion.price || suggestion.category) {
+        toast({
+         title: "Suggestion Applied",
+         description: `Set category to ${suggestion.category} and price to ₦${suggestion.price}.`,
+       });
+     }
+      return suggestion;
+    } catch (error) {
+      console.error("Error getting suggestion:", error);
+      toast({
+        variant: "destructive",
+        title: "Suggestion Error",
+        description: "Could not fetch AI suggestion.",
+      });
+      return null;
+    }
+  };
 
   const filteredExpenses = useMemo(() => {
     const start = startOfMonth(currentMonth);
@@ -381,25 +433,53 @@ export default function Home() {
                 </CardContent>
             </Card>
             <Card>
-                <CardHeader>
-                    <CardTitle>Duty Roster</CardTitle>
-                    <CardDescription>Manage who is available for duty.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {WIVES.map(wife => (
-                    <div key={wife} className="flex items-center justify-between">
-                      <Label htmlFor={`roster-${wife}`} className="flex items-center gap-2 cursor-pointer">
-                        <WifeIcon wife={wife} />
-                        {wife}
-                      </Label>
-                      <Switch
-                        id={`roster-${wife}`}
-                        checked={roster.includes(wife)}
-                        onCheckedChange={() => handleToggleWifeAvailability(wife)}
-                      />
+              <CardHeader>
+                  <CardTitle>Duty Roster</CardTitle>
+                  <CardDescription>Toggle availability and reorder the list.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {WIVES.map(wife => {
+                  const isAvailable = roster.includes(wife);
+                  const wifeIndex = isAvailable ? roster.indexOf(wife) : -1;
+                  return (
+                    <div key={wife} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          id={`roster-${wife}`}
+                          checked={isAvailable}
+                          onCheckedChange={() => handleToggleWifeAvailability(wife)}
+                        />
+                        <Label htmlFor={`roster-${wife}`} className="flex items-center gap-2 cursor-pointer">
+                          <WifeIcon wife={wife} />
+                          {wife}
+                        </Label>
+                      </div>
+                      {isAvailable && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => handleReorderWife(wife, 'up')}
+                            disabled={wifeIndex === 0}
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => handleReorderWife(wife, 'down')}
+                            disabled={wifeIndex === roster.length - 1}
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </CardContent>
+                  );
+                })}
+              </CardContent>
             </Card>
              <Card>
                 <CardHeader>
@@ -453,9 +533,9 @@ export default function Home() {
                 <CardContent className="pt-6">
                   <ExpenseForm 
                     onSave={handleSaveExpenses} 
-                    allExpenses={expenses}
                     uniqueItems={uniqueItems} 
                     availableWives={roster}
+                    onGetSuggestion={handleGetSuggestion}
                   />
                 </CardContent>
               </Card>

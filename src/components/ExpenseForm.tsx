@@ -11,14 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, PlusCircle, Trash2, Loader2 } from 'lucide-react';
+import { CalendarIcon, PlusCircle, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import type { UniqueItem, ExpenseData, Wife, Expense } from '@/types';
+import type { UniqueItem, ExpenseData, Wife, SuggestionOutput } from '@/types';
 import { EXPENSE_CATEGORIES } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { getWifeOnDutyForDate } from '@/lib/duty';
-import { suggestItemDetails, SuggestItemDetailsInput } from '@/ai/flows/suggest-item-details';
 
 const expenseSchema = z.object({
   item: z.string().min(1, 'Item name is required.'),
@@ -50,12 +49,12 @@ const formSchema = z.object({
 
 interface ExpenseFormProps {
   onSave: (expenses: Omit<ExpenseData, 'date'>[], date: Date) => Promise<void>;
-  allExpenses: Expense[];
   uniqueItems: UniqueItem[];
   availableWives: Wife[];
+  onGetSuggestion: (itemName: string) => Promise<SuggestionOutput | null>;
 }
 
-export default function ExpenseForm({ onSave, allExpenses, uniqueItems, availableWives }: ExpenseFormProps) {
+export default function ExpenseForm({ onSave, uniqueItems, availableWives, onGetSuggestion }: ExpenseFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -69,7 +68,6 @@ export default function ExpenseForm({ onSave, allExpenses, uniqueItems, availabl
   });
   const { toast } = useToast();
   const itemInputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const [suggestionLoading, setSuggestionLoading] = useState<number | null>(null);
 
   const selectedDate = form.watch('date');
 
@@ -127,36 +125,6 @@ export default function ExpenseForm({ onSave, allExpenses, uniqueItems, availabl
     return () => subscription.unsubscribe();
   }, [form, getWifeOnDuty, availableWives]);
 
-  const handleItemBlur = async (index: number) => {
-    const itemName = form.getValues(`expenses.${index}.item`);
-    const isNewItem = !uniqueItems.some(item => item.name.toLowerCase() === itemName.toLowerCase());
-    
-    if (itemName && isNewItem) {
-      setSuggestionLoading(index);
-      try {
-        const result = await suggestItemDetails({ itemName, allExpenses });
-        if (result) {
-          form.setValue(`expenses.${index}.category`, result.suggestedCategory, { shouldValidate: true });
-          form.setValue(`expenses.${index}.price`, result.suggestedPrice, { shouldValidate: true });
-          toast({
-            title: `Suggestion for ${itemName}`,
-            description: `We've filled in the category and price based on past entries.`,
-          });
-        }
-      } catch (error) {
-        console.error("Error getting suggestion:", error);
-        toast({
-          variant: "destructive",
-          title: "Suggestion Failed",
-          description: "Could not get AI suggestions for this item.",
-        });
-      } finally {
-        setSuggestionLoading(null);
-      }
-    }
-  };
-
-
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       await onSave(values.expenses, values.date);
@@ -202,6 +170,22 @@ export default function ExpenseForm({ onSave, allExpenses, uniqueItems, availabl
         }
     }
   }
+
+  const handleItemBlur = async (index: number) => {
+    const itemName = form.getValues(`expenses.${index}.item`);
+    const itemPrice = form.getValues(`expenses.${index}.price`);
+    if (itemName && !itemPrice) {
+      const suggestion = await onGetSuggestion(itemName);
+      if (suggestion) {
+        if (suggestion.category) {
+          form.setValue(`expenses.${index}.category`, suggestion.category, { shouldValidate: true });
+        }
+        if (suggestion.price) {
+           form.setValue(`expenses.${index}.price`, suggestion.price, { shouldValidate: true });
+        }
+      }
+    }
+  };
   
   const availableWifeOptions = [...availableWives, 'N/A'];
 
@@ -256,12 +240,11 @@ export default function ExpenseForm({ onSave, allExpenses, uniqueItems, availabl
                         <FormItem>
                            <DatalistInput
                                 {...field}
+                                onBlur={() => handleItemBlur(index)}
                                 options={uniqueItems}
                                 onKeyDown={(e) => handleKeyDown(e, index)}
-                                onBlur={() => handleItemBlur(index)}
                                 ref={el => itemInputRefs.current[index] = el}
                                 id={`expenses.${index}.item`}
-                                isLoading={suggestionLoading === index}
                            />
                           <FormMessage />
                         </FormItem>
@@ -344,9 +327,8 @@ const DatalistInput = React.forwardRef<
   {
     options: UniqueItem[];
     id: string;
-    isLoading?: boolean;
   } & React.ComponentPropsWithoutRef<"input">
->(({ options, id, isLoading, ...props }, ref) => {
+>(({ options, id, ...props }, ref) => {
     const datalistId = `${id}-datalist`;
     return (
         <div className="relative">
@@ -355,13 +337,7 @@ const DatalistInput = React.forwardRef<
                 {...props}
                 list={datalistId}
                 placeholder="Search or create item..."
-                className={cn(isLoading && "pr-8")}
             />
-             {isLoading && (
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              </div>
-            )}
             <datalist id={datalistId}>
                 {options.map((item) => (
                     <option key={item.id} value={item.name} />
@@ -371,5 +347,3 @@ const DatalistInput = React.forwardRef<
     );
 });
 DatalistInput.displayName = "DatalistInput";
-
-    
