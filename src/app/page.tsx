@@ -118,12 +118,17 @@ export default function Home() {
   
   const handleToggleWifeAvailability = async (wife: Wife) => {
     const isAvailable = roster.includes(wife);
-    const newRoster = isAvailable 
-      ? roster.filter(w => w !== wife)
-      : [...roster, wife];
-    
-    newRoster.sort((a, b) => WIVES.indexOf(a) - WIVES.indexOf(b));
+    let newRoster: Wife[];
 
+    if (isAvailable) {
+      // Remove wife
+      newRoster = roster.filter(w => w !== wife);
+    } else {
+      // Add wife back, maintaining original order relative to others
+      const currentAvailableWives = new Set(roster);
+      newRoster = WIVES.filter(w => currentAvailableWives.has(w) || w === wife);
+    }
+    
     const rosterRef = doc(db, 'roster', 'current');
     try {
       await setDoc(rosterRef, { availableWives: newRoster }, { merge: true });
@@ -440,7 +445,8 @@ export default function Home() {
               <CardContent className="space-y-2">
                 {WIVES.map(wife => {
                   const isAvailable = roster.includes(wife);
-                  const wifeIndex = isAvailable ? roster.indexOf(wife) : -1;
+                  const wifeInRoster = isAvailable ? wife : null;
+                  const wifeIndex = wifeInRoster ? roster.indexOf(wifeInRoster) : -1;
                   return (
                     <div key={wife} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
                       <div className="flex items-center gap-3">
