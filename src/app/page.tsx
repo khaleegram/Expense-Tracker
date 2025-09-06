@@ -24,6 +24,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { suggestItemDetails } from '@/ai/flows/suggest-item-details';
+import { Separator } from '@/components/ui/separator';
 
 export default function Home() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -117,25 +118,31 @@ export default function Home() {
   }, [roster]);
   
   const handleToggleWifeAvailability = async (wife: Wife) => {
-    const isAvailable = roster.includes(wife);
     let newRoster: Wife[];
-
-    if (isAvailable) {
-      // Remove wife
+    const isCurrentlyAvailable = roster.includes(wife);
+  
+    if (isCurrentlyAvailable) {
+      // If she is available, remove her from the roster.
       newRoster = roster.filter(w => w !== wife);
     } else {
-      // Add wife back, maintaining original order relative to others
+      // If she is unavailable, add her back.
+      // We find her original index in the main WIVES array and insert her
+      // at a position that respects the relative order of other already-available wives.
+      const originalWifeOrder = WIVES;
       const currentAvailableWives = new Set(roster);
-      newRoster = WIVES.filter(w => currentAvailableWives.has(w) || w === wife);
+      
+      const wivesToConsider = originalWifeOrder.filter(w => currentAvailableWives.has(w) || w === wife);
+      
+      newRoster = wivesToConsider;
     }
-    
+  
     const rosterRef = doc(db, 'roster', 'current');
     try {
       await setDoc(rosterRef, { availableWives: newRoster }, { merge: true });
       setRoster(newRoster);
       toast({
         title: "Roster Updated",
-        description: `${wife} is now ${isAvailable ? 'unavailable' : 'available'}.`,
+        description: `${wife} is now ${isCurrentlyAvailable ? 'unavailable' : 'available'}.`,
       });
     } catch (error) {
       console.error("Error updating roster: ", error);
@@ -388,12 +395,6 @@ export default function Home() {
     'Dinner': <Soup className="h-5 w-5 text-indigo-600" />,
   }
 
-  const allWivesWithStatus = WIVES.map(wife => ({
-    name: wife,
-    isAvailable: roster.includes(wife)
-  }));
-
-
   return (
     <div className="min-h-screen bg-background">
       <header className="py-6 px-4 md:px-8 flex items-center justify-between">
@@ -444,54 +445,62 @@ export default function Home() {
                 </CardContent>
             </Card>
             <Card>
-              <CardHeader>
-                  <CardTitle>Duty Roster</CardTitle>
-                  <CardDescription>Toggle availability and reorder the list.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {WIVES.map(wife => {
-                    const isAvailable = roster.includes(wife);
-                    const wifeInRoster = isAvailable ? wife : null;
-                    const wifeIndex = wifeInRoster ? roster.indexOf(wifeInRoster) : -1;
-                    return (
-                      <div key={wife} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
-                        <div className="flex items-center gap-3">
-                          <Switch
-                            id={`roster-${wife}`}
-                            checked={isAvailable}
-                            onCheckedChange={() => handleToggleWifeAvailability(wife)}
-                          />
-                          <Label htmlFor={`roster-${wife}`} className="flex items-center gap-2 cursor-pointer">
-                            <WifeIcon wife={wife} />
-                            {wife}
-                          </Label>
+                <CardHeader>
+                    <CardTitle>Duty Roster</CardTitle>
+                    <CardDescription>Manage duty order and availability.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">Current Duty Order</p>
+                    {roster.length > 0 ? roster.map((wife, index) => (
+                        <div key={wife} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
+                            <div className="flex items-center gap-3">
+                                <span className="text-sm font-bold w-4">{index + 1}.</span>
+                                <WifeIcon wife={wife} />
+                                {wife}
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => handleReorderWife(wife, 'up')}
+                                    disabled={index === 0}
+                                >
+                                    <ArrowUp className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => handleReorderWife(wife, 'down')}
+                                    disabled={index === roster.length - 1}
+                                >
+                                    <ArrowDown className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </div>
-                         {isAvailable && (
-                           <div className="flex items-center gap-1">
-                             <Button
-                               variant="ghost"
-                               size="icon"
-                               className="h-7 w-7"
-                               onClick={() => handleReorderWife(wife, 'up')}
-                               disabled={wifeIndex === 0}
-                             >
-                               <ArrowUp className="h-4 w-4" />
-                             </Button>
-                             <Button
-                               variant="ghost"
-                               size="icon"
-                               className="h-7 w-7"
-                               onClick={() => handleReorderWife(wife, 'down')}
-                               disabled={wifeIndex === roster.length - 1}
-                             >
-                               <ArrowDown className="h-4 w-4" />
-                             </Button>
-                           </div>
-                         )}
-                      </div>
-                    );
-                })}
-              </CardContent>
+                    )) : (
+                        <p className="text-sm text-muted-foreground py-2">No wives available for duty.</p>
+                    )}
+                    <Separator className="my-4"/>
+                     <p className="text-sm font-medium text-muted-foreground">Toggle Availability</p>
+                    {WIVES.map(wife => {
+                        const isAvailable = roster.includes(wife);
+                        return (
+                            <div key={wife} className="flex items-center justify-between p-2 rounded-md">
+                                <Label htmlFor={`roster-toggle-${wife}`} className="flex items-center gap-3 cursor-pointer">
+                                    <WifeIcon wife={wife} />
+                                    {wife}
+                                </Label>
+                                <Switch
+                                    id={`roster-toggle-${wife}`}
+                                    checked={isAvailable}
+                                    onCheckedChange={() => handleToggleWifeAvailability(wife)}
+                                />
+                            </div>
+                        );
+                    })}
+                </CardContent>
             </Card>
              <Card>
                 <CardHeader>
@@ -571,3 +580,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
