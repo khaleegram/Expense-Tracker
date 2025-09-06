@@ -453,6 +453,7 @@ export default function Home() {
                 <CardContent className="pt-6">
                   <ExpenseForm 
                     onSave={handleSaveExpenses} 
+                    allExpenses={expenses}
                     uniqueItems={uniqueItems} 
                     availableWives={roster}
                   />
