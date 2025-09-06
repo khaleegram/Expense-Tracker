@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo } from 'react';
@@ -8,6 +9,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Pie, PieChart, Cell, 
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { WifeIcon } from './WifeIcon';
 import { EXPENSE_CATEGORIES, WIVES } from '@/types';
+import { getDaysInMonth } from 'date-fns';
 
 interface DashboardProps {
   expenses: Expense[];
@@ -115,8 +117,11 @@ export default function Dashboard({ expenses, loading }: DashboardProps) {
         return acc;
     }, {} as Record<string, Set<string>>);
 
+    const uniqueExpenseDays = new Set(expenses.map(e => e.date)).size;
+    const everydayThreshold = uniqueExpenseDays * 0.7;
+
     const everydayItems = Object.entries(dailyItems)
-        .filter(([, dates]) => dates.size >= 20)
+        .filter(([, dates]) => dates.size >= everydayThreshold)
         .map(([item]) => item);
 
     return { totalSpend, spendPerWife, spendPerCategory, mostExpensiveItem, mostFrequentItem, everydayItems };

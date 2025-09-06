@@ -122,18 +122,9 @@ export default function Home() {
     const isCurrentlyAvailable = roster.includes(wife);
   
     if (isCurrentlyAvailable) {
-      // If she is available, remove her from the roster.
       newRoster = roster.filter(w => w !== wife);
     } else {
-      // If she is unavailable, add her back.
-      // We find her original index in the main WIVES array and insert her
-      // at a position that respects the relative order of other already-available wives.
-      const originalWifeOrder = WIVES;
-      const currentAvailableWives = new Set(roster);
-      
-      const wivesToConsider = originalWifeOrder.filter(w => currentAvailableWives.has(w) || w === wife);
-      
-      newRoster = wivesToConsider;
+       newRoster = [...roster, wife];
     }
   
     const rosterRef = doc(db, 'roster', 'current');
@@ -580,5 +571,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
