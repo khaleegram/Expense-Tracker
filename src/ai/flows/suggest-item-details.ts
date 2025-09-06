@@ -7,7 +7,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { 
   SuggestItemDetailsInputSchema, 
   SuggestItemDetailsOutputSchema,
@@ -54,12 +54,15 @@ const suggestItemDetailsFlow = ai.defineFlow(
     outputSchema: SuggestItemDetailsOutputSchema,
   },
   async (input) => {
-    // If there are no past expenses, we can't make a suggestion.
-    if (input.allExpenses.length === 0) {
-      // You might want to return a default or throw an error.
-      // For now, let's try a guess without context.
-      const { output } = await suggestDetailsPrompt({ itemName: input.itemName, allExpenses: [] });
-      return output!;
+    // If there are no past expenses, we can't make a meaningful suggestion.
+    // To avoid unnecessary API calls and hitting rate limits, we exit early.
+    if (!input.allExpenses || input.allExpenses.length === 0) {
+      // Return a default or empty response that the client can handle.
+      // We are returning a plausible but clearly default response.
+      return {
+        suggestedCategory: 'Other',
+        suggestedPrice: 0,
+      };
     }
     
     const { output } = await suggestDetailsPrompt(input);
