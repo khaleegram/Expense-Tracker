@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -14,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, PlusCircle, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import type { UniqueItem, ExpenseData, Wife, SuggestionOutput } from '@/types';
+import type { UniqueItem, ExpenseData, Wife } from '@/types';
 import { EXPENSE_CATEGORIES } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { getWifeOnDutyForDate } from '@/lib/duty';
@@ -51,10 +50,9 @@ interface ExpenseFormProps {
   onSave: (expenses: Omit<ExpenseData, 'date'>[], date: Date) => Promise<void>;
   uniqueItems: UniqueItem[];
   availableWives: Wife[];
-  onGetSuggestion: (itemName: string) => Promise<SuggestionOutput | null>;
 }
 
-export default function ExpenseForm({ onSave, uniqueItems, availableWives, onGetSuggestion }: ExpenseFormProps) {
+export default function ExpenseForm({ onSave, uniqueItems, availableWives }: ExpenseFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -172,19 +170,7 @@ export default function ExpenseForm({ onSave, uniqueItems, availableWives, onGet
   }
 
   const handleItemBlur = async (index: number) => {
-    const itemName = form.getValues(`expenses.${index}.item`);
-    const itemPrice = form.getValues(`expenses.${index}.price`);
-    if (itemName && !itemPrice) {
-      const suggestion = await onGetSuggestion(itemName);
-      if (suggestion) {
-        if (suggestion.category) {
-          form.setValue(`expenses.${index}.category`, suggestion.category, { shouldValidate: true });
-        }
-        if (suggestion.price) {
-           form.setValue(`expenses.${index}.price`, suggestion.price, { shouldValidate: true });
-        }
-      }
-    }
+    // AI suggestion logic removed
   };
   
   const availableWifeOptions = [...availableWives, 'N/A'];

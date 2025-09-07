@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -23,7 +22,6 @@ import { WIVES } from '@/types';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { suggestItemDetails } from '@/ai/flows/suggest-item-details';
 import { Separator } from '@/components/ui/separator';
 
 export default function Home() {
@@ -318,33 +316,6 @@ export default function Home() {
     }
   };
 
-  const handleGetSuggestion = async (itemName: string) => {
-    if (!itemName) return null;
-    try {
-      const allExpenseData = expenses.map(e => ({...e, wife: e.wife as string, category: e.category as string}));
-      const suggestion = await suggestItemDetails({
-        itemName,
-        allExpenses: allExpenseData,
-      });
-
-      if (suggestion.price || suggestion.category) {
-        toast({
-         title: "Suggestion Applied",
-         description: `Set category to ${suggestion.category} and price to ₦${suggestion.price}.`,
-       });
-     }
-      return suggestion;
-    } catch (error) {
-      console.error("Error getting suggestion:", error);
-      toast({
-        variant: "destructive",
-        title: "Suggestion Error",
-        description: "Could not fetch AI suggestion.",
-      });
-      return null;
-    }
-  };
-
   const filteredExpenses = useMemo(() => {
     const start = startOfMonth(currentMonth);
     const end = endOfMonth(currentMonth);
@@ -529,7 +500,6 @@ export default function Home() {
                     onSave={handleSaveExpenses} 
                     uniqueItems={uniqueItems} 
                     availableWives={roster}
-                    onGetSuggestion={handleGetSuggestion}
                   />
                 </CardContent>
               </Card>
